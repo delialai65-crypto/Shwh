@@ -1,0 +1,3700 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>裝甲鐵騎 3D 戰爭：50v50 第一人稱完整版</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #0b1117;
+      font-family: 'Noto Sans TC', 'Inter', system-ui, -apple-system, sans-serif;
+      color: #f8fafc;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+    }
+
+    .lobby-backdrop {
+      background:
+        radial-gradient(circle at 20% 20%, rgba(245, 158, 11, 0.22), transparent 42%),
+        radial-gradient(circle at 82% 26%, rgba(16, 185, 129, 0.16), transparent 45%),
+        radial-gradient(circle at 50% 88%, rgba(239, 68, 68, 0.18), transparent 50%),
+        linear-gradient(155deg, rgba(8, 13, 22, 0.94) 0%, rgba(15, 23, 42, 0.88) 55%, rgba(9, 13, 20, 0.96) 100%);
+      backdrop-filter: blur(8px);
+    }
+
+    .primary-btn {
+      background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+      box-shadow: 0 10px 25px -5px rgba(234, 88, 12, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .primary-btn:hover {
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+      box-shadow: 0 14px 30px -5px rgba(245, 158, 11, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    }
+
+    .primary-btn:active {
+      transform: translateY(1px) scale(0.99);
+    }
+
+    .secondary-btn {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+    }
+
+    .secondary-btn:hover {
+      background: rgba(51, 65, 85, 0.95);
+      border-color: rgba(251, 191, 36, 0.55);
+    }
+
+    .secondary-btn:active {
+      transform: scale(0.98);
+    }
+
+    .vip-btn {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 48%, #b45309 100%);
+      box-shadow: 0 10px 26px -4px rgba(245, 158, 11, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+      transition: transform 0.15s ease, filter 0.15s ease;
+    }
+
+    .vip-btn:hover {
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+    }
+
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    .custom-scroll::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.45);
+      border-radius: 999px;
+    }
+
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.35);
+      border-radius: 999px;
+    }
+
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(251, 191, 36, 0.6);
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.45); }
+      50% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+    }
+
+    .pulse-amber {
+      animation: pulseGlow 2.2s infinite;
+    }
+
+    #crosshair {
+      position: fixed;
+      width: 30px;
+      height: 30px;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      z-index: 25;
+      transition: transform 0.06s linear;
+    }
+
+    .touch-pad-btn {
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+      active-scale: 0.93;
+    }
+
+    .touch-pad-btn:active {
+      transform: scale(0.92);
+      background: rgba(245, 158, 11, 0.35);
+      border-color: #fbbf24;
+    }
+  </style>
+</head>
+<body>
+  <!-- 3D 畫布容器 -->
+  <div id="game-container" class="fixed inset-0 w-full h-full"></div>
+
+  <!-- 戰術準星 -->
+  <div id="crosshair" class="hidden">
+    <svg viewBox="0 0 32 32" class="w-full h-full drop-shadow-[0_0_6px_rgba(251,191,36,0.9)]">
+      <circle cx="16" cy="16" r="10" fill="none" stroke="#fbbf24" stroke-width="1.6" stroke-dasharray="4 3" />
+      <circle cx="16" cy="16" r="2.2" fill="#ef4444" />
+      <line x1="16" y1="2" x2="16" y2="8" stroke="#fbbf24" stroke-width="1.8" />
+      <line x1="16" y1="24" x2="16" y2="30" stroke="#fbbf24" stroke-width="1.8" />
+      <line x1="2" y1="16" x2="8" y2="16" stroke="#fbbf24" stroke-width="1.8" />
+      <line x1="24" y1="16" x2="30" y2="16" stroke="#fbbf24" stroke-width="1.8" />
+    </svg>
+  </div>
+
+  <!-- 頂部 HUD（戰鬥／暫停時顯示） -->
+  <div id="hud-top" class="fixed top-0 left-0 right-0 z-20 p-3 sm:p-4 pointer-events-none hidden">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-start justify-between gap-2 sm:gap-4">
+      <!-- 左側：裝甲血量與主砲裝填 -->
+      <div class="glass-panel rounded-2xl px-3.5 py-2.5 min-w-[210px] sm:min-w-[260px] pointer-events-auto">
+        <div class="flex items-center justify-between text-xs sm:text-sm font-bold mb-1">
+          <span class="flex items-center gap-1.5 text-emerald-400">
+            <span>🛡️</span>
+            <span>裝甲值</span>
+          </span>
+          <span id="hud-hp-text" class="text-slate-100">100 / 100</span>
+        </div>
+        <div class="w-full h-2.5 bg-slate-800/90 rounded-full overflow-hidden border border-slate-700/80 mb-2">
+          <div id="hud-hp-bar" class="h-full bg-gradient-to-r from-emerald-500 to-lime-400 transition-all duration-150" style="width: 100%;"></div>
+        </div>
+
+        <div class="flex items-center justify-between text-xs font-semibold mb-1">
+          <span class="flex items-center gap-1.5 text-amber-400">
+            <span>💥</span>
+            <span>主砲裝填</span>
+          </span>
+          <span id="hud-reload-text" class="text-amber-300">就緒</span>
+        </div>
+        <div class="w-full h-2 bg-slate-800/90 rounded-full overflow-hidden border border-slate-700/80">
+          <div id="hud-reload-bar" class="h-full bg-gradient-to-r from-amber-500 to-yellow-300 transition-all duration-75" style="width: 100%;"></div>
+        </div>
+
+        <div class="flex items-center justify-between text-[11px] text-amber-300/90 pt-1">
+          <span>作戰模式</span>
+          <span id="hud-mode-text" class="font-bold">波次生存模式</span>
+        </div>
+        <div class="flex items-center justify-between text-[11px] text-sky-300/90">
+          <span>視角模式</span>
+          <span id="hud-view-text" class="font-bold">戰術俯瞰 (按 V 切換 FPS)</span>
+        </div>
+      </div>
+
+      <!-- 中間：波次、分數與剩餘敵軍 -->
+      <div class="glass-panel rounded-2xl px-4 py-2.5 flex items-center gap-4 sm:gap-6 pointer-events-auto">
+        <div class="text-center">
+          <div class="text-[10px] sm:text-xs uppercase tracking-wider text-slate-400">波次</div>
+          <div id="hud-wave" class="text-base sm:text-xl font-black text-amber-400">1</div>
+        </div>
+        <div class="h-7 w-px bg-slate-700/80"></div>
+        <div class="text-center">
+          <div class="text-[10px] sm:text-xs uppercase tracking-wider text-slate-400">得分</div>
+          <div id="hud-score" class="text-base sm:text-xl font-black text-sky-400">0</div>
+        </div>
+        <div class="h-7 w-px bg-slate-700/80"></div>
+        <div class="text-center">
+          <div class="text-[10px] sm:text-xs uppercase tracking-wider text-slate-400">剩餘敵軍</div>
+          <div id="hud-enemies" class="text-base sm:text-xl font-black text-rose-400">0</div>
+        </div>
+      </div>
+
+      <!-- 右側：視角切換、返回大廳、音效與暫停 -->
+      <div class="pointer-events-auto flex items-center gap-2">
+        <button id="view-toggle-btn" type="button" class="secondary-btn hidden items-center gap-1.5 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold text-amber-300" title="切換第一人稱 / 戰術視角 (V)">
+          <span>🎯</span>
+          <span id="view-toggle-label" class="hidden sm:inline">第一人稱</span>
+        </button>
+        <button id="lobby-return-btn" type="button" class="secondary-btn hidden items-center gap-1.5 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold text-sky-300" title="返回指揮首頁">
+          <span>🏛️</span>
+          <span class="hidden sm:inline">首頁</span>
+        </button>
+        <button id="sound-toggle-btn" type="button" class="secondary-btn rounded-xl p-2.5 sm:px-3.5 sm:py-2.5 flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-200" title="切換音效">
+          <span id="sound-icon">🔊</span>
+          <span id="sound-label" class="hidden sm:inline">音效開</span>
+        </button>
+        <button id="pause-btn" type="button" class="secondary-btn hidden rounded-xl p-2.5 sm:px-3.5 sm:py-2.5 items-center gap-1.5 text-xs sm:text-sm font-semibold text-amber-300" title="暫停遊戲 (P / Esc)">
+          <span>⏸️</span>
+          <span class="hidden sm:inline">暫停</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 50X 巨幅戰場戰術雷達（戰鬥中左下角顯示） -->
+  <div id="radar-widget" class="fixed bottom-4 left-4 z-20 hidden pointer-events-none">
+    <div class="glass-panel rounded-2xl p-2.5 border border-emerald-500/30">
+      <div class="flex items-center justify-between text-[10px] text-emerald-300 font-bold mb-1 px-0.5">
+        <span>📡 50X 戰術雷達</span>
+        <span id="radar-coords">0, 0</span>
+      </div>
+      <canvas id="radar-canvas" width="132" height="132" class="w-28 h-28 sm:w-32 sm:h-32 rounded-xl bg-slate-950/90 border border-slate-700/70"></canvas>
+      <div class="flex items-center justify-between text-[9px] text-slate-400 mt-1 px-0.5">
+        <span>🟡 我方</span>
+        <span>🔵 友軍</span>
+        <span>🔴 敵軍</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 波次提示橫幅 -->
+  <div id="wave-banner" class="fixed top-24 left-1/2 -translate-x-1/2 z-20 pointer-events-none hidden">
+    <div class="glass-panel rounded-2xl px-6 py-3 text-center border-amber-400/40">
+      <div id="wave-banner-title" class="text-lg sm:text-2xl font-black tracking-wide text-amber-300">第 1 波敵軍來襲</div>
+      <div id="wave-banner-sub" class="text-xs sm:text-sm text-slate-300 mt-0.5">摧毀所有敵方坦克與重型砲兵</div>
+    </div>
+  </div>
+
+  <!-- 浮動通知提示 -->
+  <div id="toast-container" class="fixed top-20 right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-xs"></div>
+
+  <!-- 行動裝置觸控操作控制項 -->
+  <div id="touch-controls" class="fixed inset-x-0 bottom-0 z-20 p-4 pointer-events-none hidden">
+    <div class="max-w-7xl mx-auto flex items-end justify-between">
+      <div class="grid grid-cols-3 gap-2 pointer-events-auto">
+        <div></div>
+        <button id="touch-up" type="button" class="touch-pad-btn w-13 h-13 p-3.5 rounded-2xl flex items-center justify-center text-lg font-bold text-slate-100">▲</button>
+        <div></div>
+        <button id="touch-left" type="button" class="touch-pad-btn w-13 h-13 p-3.5 rounded-2xl flex items-center justify-center text-lg font-bold text-slate-100">◀</button>
+        <button id="touch-down" type="button" class="touch-pad-btn w-13 h-13 p-3.5 rounded-2xl flex items-center justify-center text-lg font-bold text-slate-100">▼</button>
+        <button id="touch-right" type="button" class="touch-pad-btn w-13 h-13 p-3.5 rounded-2xl flex items-center justify-center text-lg font-bold text-slate-100">▶</button>
+      </div>
+
+      <button id="touch-fire" type="button" class="touch-pad-btn pointer-events-auto w-20 h-20 rounded-full flex flex-col items-center justify-center bg-gradient-to-br from-amber-500/80 to-red-600/80 border-amber-300/70 text-white font-black shadow-xl">
+        <span class="text-2xl leading-none">💥</span>
+        <span class="text-[11px] mt-1 tracking-wider">開火</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== 豪華指揮首頁大廳 ==================== -->
+  <div id="start-screen" class="fixed inset-0 z-30 lobby-backdrop overflow-y-auto custom-scroll p-3 sm:p-6">
+    <div class="max-w-7xl mx-auto min-h-full flex flex-col justify-between gap-4">
+      <!-- 首頁頂部導覽列：會員帳號、資產、VIP、商店、活動、好友 -->
+      <header class="glass-panel rounded-2xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div id="lobby-avatar" class="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-2xl shadow-lg cursor-pointer" title="點擊管理會員帳號">
+            🎖️
+          </div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span id="lobby-commander-name" class="font-black text-sm sm:text-base text-white">鐵騎指揮官</span>
+              <span id="lobby-vip-badge" class="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-slate-800 text-slate-300 border border-slate-600">一般會員</span>
+              <span id="lobby-login-status" class="text-[11px] text-emerald-400 font-semibold">● 已連線</span>
+            </div>
+            <div class="text-[11px] sm:text-xs text-slate-400">
+              UID: <span id="lobby-uid" class="font-mono text-slate-300">CMD-884920</span> · 賽季 Lv.<span id="lobby-season-lv" class="text-amber-300 font-bold">1</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 資源與快捷功能列 -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-amber-500/30 flex items-center gap-1.5 text-xs sm:text-sm font-bold">
+            <span>🪙</span>
+            <span id="lobby-gold" class="text-amber-300">1,200</span>
+          </div>
+          <div class="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-cyan-500/30 flex items-center gap-1.5 text-xs sm:text-sm font-bold">
+            <span>💎</span>
+            <span id="lobby-gems" class="text-cyan-300">150</span>
+            <button id="quick-topup-btn" type="button" class="ml-1 px-1.5 py-0.5 rounded-md bg-cyan-500/20 hover:bg-cyan-500/40 text-cyan-200 text-[11px]">+</button>
+          </div>
+
+          <button id="open-account-btn" type="button" class="secondary-btn rounded-xl px-3 py-2 text-xs sm:text-sm font-bold text-slate-100 flex items-center gap-1.5">
+            <span>👤</span>
+            <span>會員登入</span>
+          </button>
+          <button id="open-shop-btn" type="button" class="secondary-btn rounded-xl px-3 py-2 text-xs sm:text-sm font-bold text-amber-300 flex items-center gap-1.5">
+            <span>🛒</span>
+            <span>軍備商店</span>
+          </button>
+          <button id="open-events-btn" type="button" class="secondary-btn rounded-xl px-3 py-2 text-xs sm:text-sm font-bold text-emerald-300 flex items-center gap-1.5">
+            <span>🎯</span>
+            <span>活動與賽季</span>
+          </button>
+          <button id="open-friends-btn" type="button" class="secondary-btn rounded-xl px-3 py-2 text-xs sm:text-sm font-bold text-sky-300 flex items-center gap-1.5">
+            <span>👥</span>
+            <span>好友 <span id="lobby-friends-count" class="text-amber-300">(0)</span></span>
+          </button>
+          <button id="open-vip-btn" type="button" class="vip-btn rounded-xl px-3.5 py-2 text-xs sm:text-sm font-black text-slate-950 flex items-center gap-1.5">
+            <span>👑</span>
+            <span>VIP 會員</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- 限時特惠橫幅（課金誘因） -->
+      <div class="rounded-2xl p-3 sm:px-5 bg-gradient-to-r from-amber-500/20 via-orange-600/20 to-rose-600/20 border border-amber-400/40 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <span class="px-2.5 py-1 rounded-lg bg-rose-600 text-white text-xs font-black tracking-wider">限時空投</span>
+          <div>
+            <div class="text-xs sm:text-sm font-extrabold text-amber-200">
+              首儲雙倍鑽石 +「黃金雷霆」傳說塗裝（+25% 火力與 1.5x 收益）
+            </div>
+            <div class="text-[11px] text-slate-300">
+              限時倒數 <span id="flash-countdown" class="font-mono font-bold text-amber-300">02:14:38</span> · 50X 巨幅戰場已全面開放
+            </div>
+          </div>
+        </div>
+        <button id="flash-pack-btn" type="button" class="primary-btn rounded-xl px-4 py-2 text-xs sm:text-sm font-black text-white">
+          ⚡ 立即搶購特惠包
+        </button>
+      </div>
+
+      <!-- 主內容區：左側模式選擇與戰場預覽，右側塗裝／戰力與出擊按鈕 -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch my-auto">
+        <!-- 左側（7 欄）：作戰模式選擇 -->
+        <section class="lg:col-span-7 glass-panel rounded-3xl p-4 sm:p-6 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-4">
+              <div>
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-amber-300 text-[11px] font-bold mb-1">
+                  <span>🌍 50X 巨幅戰場 · 50v50 第一人稱支援</span>
+                </div>
+                <h1 class="text-2xl sm:text-4xl font-black tracking-tight text-white">
+                  裝甲鐵騎 <span class="text-amber-400">3D 戰爭</span>
+                </h1>
+              </div>
+              <div class="text-right hidden sm:block">
+                <div class="text-xs text-slate-400">歷史最高紀錄</div>
+                <div id="start-best-score" class="text-xl font-black text-amber-400">0</div>
+              </div>
+            </div>
+
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">選擇作戰模式</div>
+            <div id="mode-cards-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 max-h-[360px] overflow-y-auto custom-scroll pr-1">
+              <!-- 模式卡片由 JS 動態渲染 -->
+            </div>
+          </div>
+
+          <!-- 操作說明列 -->
+          <div class="mt-4 pt-3.5 border-t border-slate-700/70 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-[11px] text-slate-300">
+            <div class="bg-slate-900/70 rounded-xl p-2 border border-slate-800">
+              <div class="font-bold text-amber-300">WASD / 方向鍵</div>
+              <div>駕駛坦克移動</div>
+            </div>
+            <div class="bg-slate-900/70 rounded-xl p-2 border border-slate-800">
+              <div class="font-bold text-amber-300">滑鼠 / 空白鍵</div>
+              <div>瞄準與主砲開火</div>
+            </div>
+            <div class="bg-slate-900/70 rounded-xl p-2 border border-slate-800">
+              <div class="font-bold text-sky-300">V 鍵 / 視角鈕</div>
+              <div>50v50 第一人稱切換</div>
+            </div>
+            <div class="bg-slate-900/70 rounded-xl p-2 border border-slate-800">
+              <div class="font-bold text-emerald-300">P / Esc</div>
+              <div>暫停與戰術選單</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 右側（5 欄）：戰車塗裝、屬性總覽與立即出擊 -->
+        <aside class="lg:col-span-5 glass-panel rounded-3xl p-4 sm:p-6 flex flex-col justify-between gap-4">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                <span>🎨</span>
+                <span>座駕塗裝與火力配置</span>
+              </h2>
+              <span id="active-skin-tag" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                森林迷彩
+              </span>
+            </div>
+
+            <div id="skin-selector-list" class="grid grid-cols-1 gap-2 mb-4">
+              <!-- 塗裝選項由 JS 渲染 -->
+            </div>
+
+            <!-- 當前戰力數據 -->
+            <div class="rounded-2xl bg-slate-900/80 border border-slate-800 p-3.5 space-y-2 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-400">最大裝甲值</span>
+                <span id="stat-max-hp" class="font-bold text-emerald-400">100 HP</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">主砲傷害</span>
+                <span id="stat-damage" class="font-bold text-amber-300">25 DMG</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">裝填速度</span>
+                <span id="stat-reload" class="font-bold text-sky-300">0.70 秒</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">綜合收益加成</span>
+                <span id="stat-reward-mult" class="font-bold text-purple-300">1.00x</span>
+              </div>
+            </div>
+          </div>
+
+          <button id="start-btn" type="button" class="primary-btn pulse-amber w-full py-4 rounded-2xl text-lg sm:text-xl font-black tracking-wider text-white flex items-center justify-center gap-2.5">
+            <span>🚀</span>
+            <span id="start-btn-label">立即出擊作戰</span>
+          </button>
+        </aside>
+      </div>
+
+      <!-- 頁尾狀態列 -->
+      <footer class="text-center text-[11px] text-slate-400 pb-1">
+        提示：選擇「50v50 第一人稱戰場」可直接進入 100 單位史詩會戰與第一人稱瞄準，戰鬥中隨時可按 <span class="text-amber-300 font-bold">V</span> 鍵切換視角。
+      </footer>
+    </div>
+  </div>
+
+  <!-- ==================== 暫停選單 ==================== -->
+  <div id="pause-screen" class="fixed inset-0 z-30 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-panel rounded-3xl max-w-md w-full p-6 text-center space-y-4">
+      <div class="text-4xl">⏸️</div>
+      <h2 class="text-2xl font-black text-white">戰場已暫停</h2>
+      <p class="text-xs sm:text-sm text-slate-300">
+        目前模式：<span id="pause-mode-name" class="text-amber-300 font-bold">波次生存模式</span> · 第 <span id="pause-wave" class="text-amber-300 font-bold">1</span> 波
+      </p>
+      <div class="flex flex-col gap-2.5 pt-2">
+        <button id="resume-btn" type="button" class="primary-btn w-full py-3 rounded-2xl font-black text-white">
+          ▶ 繼續作戰
+        </button>
+        <button id="pause-toggle-fps-btn" type="button" class="secondary-btn w-full py-3 rounded-2xl font-bold text-amber-300">
+          🎯 切換第一人稱 / 戰術視角
+        </button>
+        <button id="restart-from-pause-btn" type="button" class="secondary-btn w-full py-3 rounded-2xl font-bold text-slate-100">
+          🔄 重新開始本局
+        </button>
+        <button id="pause-to-lobby-btn" type="button" class="secondary-btn w-full py-3 rounded-2xl font-bold text-sky-300">
+          🏛️ 返回指揮首頁
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 戰局結束結算畫面 ==================== -->
+  <div id="gameover-screen" class="fixed inset-0 z-30 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-panel rounded-3xl max-w-lg w-full p-6 sm:p-7 text-center space-y-5 border-rose-500/30">
+      <div>
+        <div class="inline-block px-3 py-1 rounded-full bg-rose-500/20 border border-rose-400/30 text-rose-300 text-xs font-bold mb-2">
+          戰損回報 · 任務結算
+        </div>
+        <h2 class="text-3xl font-black text-white">裝甲被擊毀</h2>
+      </div>
+
+      <div class="grid grid-cols-3 gap-2.5">
+        <div class="rounded-2xl bg-slate-900/85 border border-slate-800 p-3">
+          <div class="text-[11px] text-slate-400">最終得分</div>
+          <div id="final-score" class="text-xl sm:text-2xl font-black text-sky-400 mt-0.5">0</div>
+        </div>
+        <div class="rounded-2xl bg-slate-900/85 border border-slate-800 p-3">
+          <div class="text-[11px] text-slate-400">抵達波次</div>
+          <div id="final-wave" class="text-xl sm:text-2xl font-black text-amber-400 mt-0.5">1</div>
+        </div>
+        <div class="rounded-2xl bg-slate-900/85 border border-slate-800 p-3">
+          <div class="text-[11px] text-slate-400">擊毀單位</div>
+          <div id="final-kills" class="text-xl sm:text-2xl font-black text-emerald-400 mt-0.5">0</div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl bg-amber-500/10 border border-amber-400/30 p-3 text-xs sm:text-sm text-amber-200">
+        歷史最高分：<span id="best-score" class="font-black text-amber-300">0</span> · 本局已結算軍費與賽季經驗！
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-2.5">
+        <button id="restart-btn" type="button" class="primary-btn flex-1 py-3.5 rounded-2xl font-black text-white">
+          🔄 再次出擊
+        </button>
+        <button id="gameover-to-lobby-btn" type="button" class="secondary-btn flex-1 py-3.5 rounded-2xl font-bold text-sky-300">
+          🏛️ 返回指揮首頁
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 會員登入／帳號中心彈窗 ==================== -->
+  <div id="account-modal" class="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-panel rounded-3xl max-w-md w-full p-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-black text-white flex items-center gap-2">
+          <span>👤</span>
+          <span>指揮官會員中心</span>
+        </h3>
+        <button data-close-modal="account-modal" type="button" class="secondary-btn w-9 h-9 rounded-xl font-bold text-slate-300">✕</button>
+      </div>
+
+      <div class="rounded-2xl bg-slate-900/85 border border-slate-800 p-3.5 text-xs space-y-1">
+        <div class="text-slate-400">目前登入帳號</div>
+        <div id="account-current-info" class="text-sm font-bold text-emerald-400">鐵騎指揮官 (訪客／快速帳號)</div>
+        <div id="account-uid-display" class="font-mono text-[11px] text-slate-400">UID: CMD-884920</div>
+      </div>
+
+      <form id="account-login-form" class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">指揮官代號／暱稱</label>
+          <input id="login-nickname-input" type="text" maxlength="16" placeholder="例如：裝甲戰神" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-400" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">會員信箱／帳號</label>
+          <input id="login-email-input" type="text" placeholder="commander@tankwar.gg" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-400" />
+        </div>
+        <div class="flex gap-2 pt-1">
+          <button type="submit" class="primary-btn flex-1 py-3 rounded-xl font-black text-sm text-white">
+            ✅ 登入並同步資料
+          </button>
+          <button id="guest-switch-btn" type="button" class="secondary-btn px-4 py-3 rounded-xl font-bold text-xs text-slate-200">
+            快速訪客
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== 軍備商店與鑽石儲值彈窗 ==================== -->
+  <div id="shop-modal" class="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-panel rounded-3xl max-w-3xl w-full max-h-[88vh] flex flex-col p-5 sm:p-6">
+      <div class="flex items-center justify-between gap-2 pb-3 border-b border-slate-800">
+        <div>
+          <h3 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+            <span>🛒</span>
+            <span>戰地軍備商店</span>
+          </h3>
+          <p class="text-xs text-slate-400">強化裝甲火力、解鎖傳說塗裝或儲值鑽石包</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-3 py-1 rounded-xl bg-slate-900 border border-amber-500/30 text-xs font-bold text-amber-300">
+            🪙 <span id="shop-gold">1,200</span>
+          </span>
+          <span class="px-3 py-1 rounded-xl bg-slate-900 border border-cyan-500/30 text-xs font-bold text-cyan-300">
+            💎 <span id="shop-gems">150</span>
+          </span>
+          <button data-close-modal="shop-modal" type="button" class="secondary-btn w-9 h-9 rounded-xl font-bold text-slate-300">✕</button>
+        </div>
+      </div>
+
+      <div class="flex gap-2 my-3">
+        <button id="shop-tab-upgrades" type="button" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-black bg-amber-500 text-slate-950">
+          🔧 戰車強化與塗裝
+        </button>
+        <button id="shop-tab-gems" type="button" class="secondary-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-cyan-300">
+          💎 鑽石儲值專區
+        </button>
+      </div>
+
+      <div id="shop-items-container" class="flex-1 overflow-y-auto custom-scroll grid grid-cols-1 sm:grid-cols-2 gap-3 pr-1">
+        <!-- 商店品項由 JS 渲染 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 活動任務與賽季通行證彈窗 ==================== -->
+  <div id="events-modal" class="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-panel rounded-3xl max-w-2xl w-full max-h-[86vh] flex flex-col p-5 sm:p-6">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div>
+          <h3 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+            <span>🎯</span>
+            <span>作戰任務與賽季活動</span>
+          </h3>
+          <p class="text-xs text-slate-400">完成任務領取軍費與鑽石，提升賽季等級解鎖獎勵</p>
+        </div>
+        <button data-close-modal="events-modal" type="button" class="secondary-btn w-9 h-9 rounded-xl font-bold text-slate-300">✕</button>
+      </div>
+
+      <div class="flex gap-2 my-3">
+        <button id="event-tab-missions" type="button" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-black bg-emerald-500 text-slate-950">
+          📋 每日作戰任務
+        </button>
+        <button id="event-tab-season" type="button" class="secondary-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-amber-300">
+          🏆 S1 鋼鐵風暴賽季
+        </button>
+      </div>
+
+      <div id="events-content-container" class="flex-1 overflow-y-auto custom-scroll space-y-3 pr-1">
+        <!-- 活動內容由 JS 渲染 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== VIP 會員中心彈窗 ==================== -->
+  <div id="vip-modal" class="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-panel rounded-3xl max-w-2xl w-full max-h-[88vh] overflow-y-auto custom-scroll p-5 sm:p-6 space-y-4 border-amber-400/40">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-xl sm:text-2xl font-black text-amber-300 flex items-center gap-2">
+            <span>👑</span>
+            <span>皇家 VIP 指揮官特權</span>
+          </h3>
+          <p id="vip-status-desc" class="text-xs text-slate-300 mt-0.5">享受全模式收益加成、專屬座駕塗裝與每日鑽石補給</p>
+        </div>
+        <button data-close-modal="vip-modal" type="button" class="secondary-btn w-9 h-9 rounded-xl font-bold text-slate-300">✕</button>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="rounded-2xl bg-slate-900/85 border border-amber-500/35 p-4 flex flex-col justify-between space-y-3">
+          <div>
+            <div class="text-xs font-bold text-amber-400">30 天方案</div>
+            <div class="text-xl font-black text-white mt-0.5">VIP 菁英指揮官</div>
+            <ul class="text-xs text-slate-300 space-y-1.5 mt-2.5">
+              <li>✓ 戰鬥得分與金幣收益 <span class="text-amber-300 font-bold">+35%</span></li>
+              <li>✓ 即贈 <span class="text-cyan-300 font-bold">300 鑽石</span> + 賽季 EXP +500</li>
+              <li>✓ 解鎖「極地冰鋒」專屬塗裝</li>
+            </ul>
+          </div>
+          <button data-buy-vip="monthly" type="button" class="vip-btn w-full py-2.5 rounded-xl text-sm font-black text-slate-950">
+            NT$ 149 · 立即開通
+          </button>
+        </div>
+
+        <div class="rounded-2xl bg-gradient-to-br from-amber-500/15 to-orange-600/15 border border-amber-300/60 p-4 flex flex-col justify-between space-y-3">
+          <div>
+            <div class="text-xs font-bold text-amber-300">永久尊榮方案</div>
+            <div class="text-xl font-black text-white mt-0.5">SVIP 傳奇元帥</div>
+            <ul class="text-xs text-slate-200 space-y-1.5 mt-2.5">
+              <li>✓ 戰鬥得分與金幣收益 <span class="text-amber-300 font-bold">+75%</span></li>
+              <li>✓ 即贈 <span class="text-cyan-300 font-bold">900 鑽石</span> + 賽季 EXP +1,500</li>
+              <li>✓ 解鎖「黃金雷霆」傳說塗裝與專屬徽章</li>
+            </ul>
+          </div>
+          <button data-buy-vip="lifetime" type="button" class="primary-btn w-full py-2.5 rounded-xl text-sm font-black text-white">
+            NT$ 490 · 永久升級
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 模擬付款結帳彈窗 ==================== -->
+  <div id="checkout-modal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-panel rounded-3xl max-w-md w-full p-6 space-y-4 border-amber-400/40">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg sm:text-xl font-black text-white">💳 安全付款確認</h3>
+        <button data-close-modal="checkout-modal" type="button" class="secondary-btn w-9 h-9 rounded-xl font-bold text-slate-300">✕</button>
+      </div>
+
+      <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-3.5 space-y-1">
+        <div class="text-xs text-slate-400">購買品項</div>
+        <div id="checkout-item-name" class="text-base font-black text-amber-300">首儲雙倍鑽石禮包</div>
+        <div id="checkout-item-reward" class="text-xs text-emerald-300">獲得 600 鑽石 + 黃金雷霆塗裝</div>
+        <div id="checkout-item-price" class="text-lg font-black text-white pt-1">NT$ 120</div>
+      </div>
+
+      <div>
+        <div class="text-xs font-bold text-slate-300 mb-2">選擇付款方式（模擬結帳）</div>
+        <div class="grid grid-cols-1 gap-2" id="payment-methods-list">
+          <button type="button" data-pay-method="信用卡 (VISA/Master)" class="pay-method-btn secondary-btn border-amber-400 bg-amber-500/15 rounded-xl px-3.5 py-2.5 text-left text-xs sm:text-sm font-bold text-white flex justify-between items-center">
+            <span>💳 信用卡 (VISA / MasterCard)</span>
+            <span class="text-amber-300 text-xs">已選</span>
+          </button>
+          <button type="button" data-pay-method="LINE Pay / 行動支付" class="pay-method-btn secondary-btn rounded-xl px-3.5 py-2.5 text-left text-xs sm:text-sm font-bold text-slate-200 flex justify-between items-center">
+            <span>📱 LINE Pay / 行動支付</span>
+            <span class="text-slate-400 text-xs">選擇</span>
+          </button>
+          <button type="button" data-pay-method="超商代碼 / 金融轉帳" class="pay-method-btn secondary-btn rounded-xl px-3.5 py-2.5 text-left text-xs sm:text-sm font-bold text-slate-200 flex justify-between items-center">
+            <span>🏪 超商代碼 / 金融轉帳</span>
+            <span class="text-slate-400 text-xs">選擇</span>
+          </button>
+        </div>
+      </div>
+
+      <button id="confirm-payment-btn" type="button" class="primary-btn w-full py-3 rounded-2xl font-black text-white">
+        ✅ 確認付款並立即發放
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== 好友系統彈窗 ==================== -->
+  <div id="friends-modal" class="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-panel rounded-3xl max-w-xl w-full max-h-[86vh] flex flex-col p-5 sm:p-6">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div>
+          <h3 class="text-xl font-black text-white flex items-center gap-2">
+            <span>👥</span>
+            <span>戰友名冊與好友系統</span>
+          </h3>
+          <p class="text-xs text-slate-400">新增好友、互贈軍費補給或邀請一起出戰</p>
+        </div>
+        <button data-close-modal="friends-modal" type="button" class="secondary-btn w-9 h-9 rounded-xl font-bold text-slate-300">✕</button>
+      </div>
+
+      <form id="add-friend-form" class="flex gap-2 my-3">
+        <input id="friend-search-input" type="text" placeholder="輸入好友暱稱或 UID（如：鋼鐵砲神、CMD-502910）" class="flex-1 rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-sky-400" />
+        <button type="submit" class="primary-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-black text-white">
+          + 加好友
+        </button>
+      </form>
+
+      <div id="friends-list-container" class="flex-1 overflow-y-auto custom-scroll space-y-2.5 pr-1">
+        <!-- 好友列表由 JS 渲染 -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. 50X 巨幅戰場地形與物理常數設定
+    // =========================================================================
+    const ARENA_HALF_SIZE = 320; // 面積較原本擴大 50 倍（640x640 巨幅戰區）
+    const TERRAIN_SEGMENTS = 140;
+
+    function getTerrainHeight(x, z) {
+      const distFromCenter = Math.hypot(x, z);
+      const flatFactor = THREE.MathUtils.smoothstep(distFromCenter, 22, 65);
+      const h1 = Math.sin(x * 0.022) * Math.cos(z * 0.022) * 2.8;
+      const h2 = Math.sin((x + z) * 0.048) * 1.15;
+      const ridge = Math.cos(x * 0.011 - z * 0.009) * 1.9;
+      return (h1 + h2 + ridge) * flatFactor;
+    }
+
+    function getTerrainNormal(x, z) {
+      const eps = 0.6;
+      const hL = getTerrainHeight(x - eps, z);
+      const hR = getTerrainHeight(x + eps, z);
+      const hD = getTerrainHeight(x, z - eps);
+      const hU = getTerrainHeight(x, z + eps);
+      return new THREE.Vector3(hL - hR, 2 * eps, hD - hU).normalize();
+    }
+
+    // =========================================================================
+    // 2. 作戰模式、塗裝、商店與活動常數設定
+    // =========================================================================
+    const GAME_MODES = {
+      survival: {
+        id: 'survival',
+        name: '波次生存模式',
+        badge: '1.0x 獎勵',
+        desc: '抵禦層層進逼的裝甲與砲兵波次，每波結束獲得裝甲修復與軍費獎勵。',
+        rewardMult: 1.0,
+        enemySpeedMult: 1.0,
+        enemyCountBonus: 0,
+        artilleryFocus: false,
+        is50v50: false,
+        defaultFps: false
+      },
+      blitz: {
+        id: 'blitz',
+        name: '極限突圍模式',
+        badge: '1.35x 獎勵',
+        desc: '高機動高速敵軍突擊！節奏緊湊、敵方移動更快，適合追求高連殺與快節奏戰鬥。',
+        rewardMult: 1.35,
+        enemySpeedMult: 1.32,
+        enemyCountBonus: 2,
+        artilleryFocus: false,
+        is50v50: false,
+        defaultFps: false
+      },
+      artillery: {
+        id: 'artillery',
+        name: '砲兵轟炸演習',
+        badge: '1.45x 獎勵',
+        desc: '重型砲兵大量集結！善用砲彈濺射與掩體走位，摧毀遠程重砲單位賺取高額賞金。',
+        rewardMult: 1.45,
+        enemySpeedMult: 0.92,
+        enemyCountBonus: 1,
+        artilleryFocus: true,
+        is50v50: false,
+        defaultFps: false
+      },
+      ranked: {
+        id: 'ranked',
+        name: '王牌競技賽',
+        badge: '1.75x 賽季RP',
+        desc: '高強度競技對決！敵軍裝甲與火力全面強化，通關波次可獲得大量賽季經驗與鑽石。',
+        rewardMult: 1.75,
+        enemySpeedMult: 1.18,
+        enemyCountBonus: 3,
+        artilleryFocus: false,
+        is50v50: false,
+        defaultFps: false
+      },
+      fps50v50: {
+        id: 'fps50v50',
+        name: '50v50 第一人稱戰場',
+        badge: '2.1x 史詩戰役',
+        desc: '50 名藍軍裝甲與 50 名紅軍部隊在 50X 巨幅戰場正面交鋒！預設第一人稱視角（可按 V 切換），體驗真實前線砲火。',
+        rewardMult: 2.1,
+        enemySpeedMult: 1.12,
+        enemyCountBonus: 0,
+        artilleryFocus: false,
+        is50v50: true,
+        defaultFps: true
+      }
+    };
+
+    const SKINS_CONFIG = {
+      forest: {
+        id: 'forest',
+        name: '森林迷彩',
+        tier: '標準座駕',
+        bodyColor: 0x3f6212,
+        turretColor: 0x4d7c0f,
+        accentColor: 0xa3e635,
+        hpBonus: 0,
+        dmgBonus: 0,
+        reloadMult: 1.0,
+        rewardBonus: 0,
+        costType: null,
+        costValue: 0
+      },
+      arctic: {
+        id: 'arctic',
+        name: '極地冰鋒',
+        tier: '菁英塗裝',
+        bodyColor: 0x0284c7,
+        turretColor: 0x0369a1,
+        accentColor: 0x7dd3fc,
+        hpBonus: 25,
+        dmgBonus: 6,
+        reloadMult: 0.9,
+        rewardBonus: 0.15,
+        costType: 'gold',
+        costValue: 800
+      },
+      golden: {
+        id: 'golden',
+        name: '黃金雷霆',
+        tier: '傳說塗裝',
+        bodyColor: 0xd97706,
+        turretColor: 0xf59e0b,
+        accentColor: 0xfef08a,
+        hpBonus: 50,
+        dmgBonus: 14,
+        reloadMult: 0.8,
+        rewardBonus: 0.3,
+        costType: 'gems',
+        costValue: 200
+      }
+    };
+
+    const GEM_PACKS = [
+      {
+        id: 'pack_starter',
+        name: '首儲雙倍鑽石禮包',
+        priceText: 'NT$ 120',
+        gems: 600,
+        gold: 1500,
+        badge: '首儲 2 倍',
+        desc: '內含 600 鑽石 + 1,500 軍費，助你瞬間升級火力與解鎖塗裝！'
+      },
+      {
+        id: 'pack_tactical',
+        name: '戰術補給鑽石箱',
+        priceText: 'NT$ 290',
+        gems: 1100,
+        gold: 3000,
+        badge: '熱銷推薦',
+        desc: '內含 1,100 鑽石 + 3,000 軍費，適合衝刺王牌競技賽與賽季等級。'
+      },
+      {
+        id: 'pack_armada',
+        name: '元帥軍團超級箱',
+        priceText: 'NT$ 790',
+        gems: 3200,
+        gold: 8500,
+        badge: '超值回饋',
+        desc: '內含 3,200 鑽石 + 8,500 軍費，一步到位強化滿等裝甲與傳說座駕。'
+      }
+    ];
+
+    const DEFAULT_MISSIONS = [
+      { id: 'm_kills', title: '摧毀 8 架敵方單位', target: 8, statKey: 'kills', rewardGold: 450, rewardGems: 40, claimed: false },
+      { id: 'm_score', title: '單局或累計獲得 1,500 戰果得分', target: 1500, statKey: 'scoreEarned', rewardGold: 550, rewardGems: 50, claimed: false },
+      { id: 'm_waves', title: '成功推進 3 個作戰波次', target: 3, statKey: 'wavesCleared', rewardGold: 600, rewardGems: 60, claimed: false }
+    ];
+
+    const DEFAULT_FRIENDS = [
+      { id: 'f1', name: '鋼鐵砲神', uid: 'CMD-502910', status: '線上 · 50v50 戰場', giftClaimedToday: false },
+      { id: 'f2', name: '荒漠狙擊手', uid: 'CMD-774128', status: '線上 · 王牌競技賽', giftClaimedToday: false },
+      { id: 'f3', name: '裝甲醫護兵', uid: 'CMD-339812', status: '離線 · 昨日上線', giftClaimedToday: false }
+    ];
+
+    // =========================================================================
+    // 3. Web Audio 音效合成器
+    // =========================================================================
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+
+      unlock() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) {
+            this.ctx = new AudioCtx();
+          }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+
+      setEnabled(val) {
+        this.enabled = Boolean(val);
+      }
+
+      playCannonShot(isHeavy = false) {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = isHeavy ? 'sawtooth' : 'triangle';
+        osc.frequency.setValueAtTime(isHeavy ? 145 : 210, now);
+        osc.frequency.exponentialRampToValueAtTime(36, now + (isHeavy ? 0.28 : 0.19));
+
+        gain.gain.setValueAtTime(isHeavy ? 0.28 : 0.22, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + (isHeavy ? 0.3 : 0.2));
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + (isHeavy ? 0.3 : 0.2));
+      }
+
+      playExplosion(intensity = 1.0) {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const duration = Math.min(0.85, 0.38 * intensity);
+        const bufferSize = Math.floor(this.ctx.sampleRate * duration);
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+
+        for (let i = 0; i < bufferSize; i++) {
+          const env = Math.pow(1 - i / bufferSize, 1.7);
+          data[i] = (Math.random() * 2 - 1) * env;
+        }
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(420, now);
+        filter.frequency.exponentialRampToValueAtTime(65, now + duration);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(Math.min(0.45, 0.28 * intensity), now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+        noise.start(now);
+        noise.stop(now + duration);
+      }
+
+      playHit() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(520, now);
+        osc.frequency.exponentialRampToValueAtTime(160, now + 0.07);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.075);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.08);
+      }
+
+      playPickup() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const notes = [523.25, 659.25, 783.99];
+        notes.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+          gain.gain.setValueAtTime(0.12, now + idx * 0.06);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.14);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.06);
+          osc.stop(now + idx * 0.06 + 0.15);
+        });
+      }
+
+      playWaveFanfare() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const chord = [392.0, 493.88, 587.33, 783.99];
+        chord.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+          gain.gain.setValueAtTime(0.11, now + idx * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.25);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.08);
+          osc.stop(now + idx * 0.08 + 0.26);
+        });
+      }
+    }
+
+    // =========================================================================
+    // 4. 3D 坦克與砲兵模型建構器
+    // =========================================================================
+    function createTankMesh({ bodyColor, turretColor, accentColor, isArtillery = false, isPlayer = false }) {
+      const root = new THREE.Group();
+
+      const bodyMat = new THREE.MeshStandardMaterial({
+        color: bodyColor,
+        roughness: 0.55,
+        metalness: 0.35
+      });
+      const turretMat = new THREE.MeshStandardMaterial({
+        color: turretColor,
+        roughness: 0.45,
+        metalness: 0.42
+      });
+      const trackMat = new THREE.MeshStandardMaterial({
+        color: 0x1e293b,
+        roughness: 0.85,
+        metalness: 0.25
+      });
+      const accentMat = new THREE.MeshStandardMaterial({
+        color: accentColor,
+        roughness: 0.35,
+        metalness: 0.5,
+        emissive: accentColor,
+        emissiveIntensity: isPlayer ? 0.18 : 0.08
+      });
+
+      const scale = isArtillery ? 1.15 : 1.0;
+
+      // 左右履帶
+      const trackGeo = new THREE.BoxGeometry(0.75 * scale, 0.85 * scale, 4.2 * scale);
+      const leftTrack = new THREE.Mesh(trackGeo, trackMat);
+      leftTrack.position.set(-1.35 * scale, 0.42 * scale, 0);
+      leftTrack.castShadow = true;
+      leftTrack.receiveShadow = true;
+      root.add(leftTrack);
+
+      const rightTrack = new THREE.Mesh(trackGeo, trackMat);
+      rightTrack.position.set(1.35 * scale, 0.42 * scale, 0);
+      rightTrack.castShadow = true;
+      rightTrack.receiveShadow = true;
+      root.add(rightTrack);
+
+      // 車身底盤
+      const hullGeo = new THREE.BoxGeometry(2.2 * scale, 0.9 * scale, 3.8 * scale);
+      const hull = new THREE.Mesh(hullGeo, bodyMat);
+      hull.position.set(0, 0.78 * scale, 0);
+      hull.castShadow = true;
+      hull.receiveShadow = true;
+      root.add(hull);
+
+      // 裝甲飾條
+      const trimGeo = new THREE.BoxGeometry(2.26 * scale, 0.18 * scale, 1.2 * scale);
+      const trim = new THREE.Mesh(trimGeo, accentMat);
+      trim.position.set(0, 1.05 * scale, 0.4 * scale);
+      root.add(trim);
+
+      // 砲塔群組
+      const turretGroup = new THREE.Group();
+      turretGroup.position.set(0, 1.22 * scale, -0.1 * scale);
+      root.add(turretGroup);
+
+      const turretGeo = new THREE.BoxGeometry(1.75 * scale, 0.78 * scale, 2.0 * scale);
+      const turret = new THREE.Mesh(turretGeo, turretMat);
+      turret.position.set(0, 0.38 * scale, 0);
+      turret.castShadow = true;
+      turretGroup.add(turret);
+
+      // 砲管
+      const barrelLength = isArtillery ? 3.2 : 2.55;
+      const barrelRadius = isArtillery ? 0.24 : 0.17;
+      const barrelGeo = new THREE.CylinderGeometry(barrelRadius, barrelRadius * 1.15, barrelLength, 14);
+      barrelGeo.rotateX(Math.PI / 2);
+      const barrel = new THREE.Mesh(barrelGeo, trackMat);
+      barrel.position.set(0, 0.42 * scale, barrelLength * 0.5 + 0.7 * scale);
+      barrel.castShadow = true;
+      turretGroup.add(barrel);
+
+      // 砲口制退器／發射點
+      const muzzlePoint = new THREE.Object3D();
+      muzzlePoint.position.set(0, 0.42 * scale, barrelLength + 0.85 * scale);
+      turretGroup.add(muzzlePoint);
+
+      // 非玩家單位頭頂血條
+      let hpBarGroup = null;
+      let hpBarFill = null;
+      if (!isPlayer) {
+        hpBarGroup = new THREE.Group();
+        hpBarGroup.position.set(0, 2.85 * scale, 0);
+
+        const bgGeo = new THREE.PlaneGeometry(2.2, 0.26);
+        const bgMat = new THREE.MeshBasicMaterial({ color: 0x0f172a, side: THREE.DoubleSide });
+        const bgMesh = new THREE.Mesh(bgGeo, bgMat);
+        hpBarGroup.add(bgMesh);
+
+        const fillGeo = new THREE.PlaneGeometry(2.1, 0.18);
+        const fillMat = new THREE.MeshBasicMaterial({ color: accentColor, side: THREE.DoubleSide });
+        hpBarFill = new THREE.Mesh(fillGeo, fillMat);
+        hpBarFill.position.z = 0.01;
+        hpBarGroup.add(hpBarFill);
+
+        root.add(hpBarGroup);
+      }
+
+      return {
+        root,
+        turretGroup,
+        muzzlePoint,
+        hpBarGroup,
+        hpBarFill,
+        collisionRadius: 2.25 * scale,
+        materials: [bodyMat, turretMat, trackMat, accentMat]
+      };
+    }
+
+    // =========================================================================
+    // 5. 主遊戲類別
+    // =========================================================================
+    class TankWarfareGame {
+      constructor() {
+        this.sound = new SoundEngine();
+        this.save = this.loadSaveState();
+
+        this.ui = {
+          startScreen: document.getElementById('start-screen'),
+          pauseScreen: document.getElementById('pause-screen'),
+          gameoverScreen: document.getElementById('gameover-screen'),
+          hudTop: document.getElementById('hud-top'),
+          radarWidget: document.getElementById('radar-widget'),
+          radarCanvas: document.getElementById('radar-canvas'),
+          radarCoords: document.getElementById('radar-coords'),
+          crosshair: document.getElementById('crosshair'),
+          waveBanner: document.getElementById('wave-banner'),
+          waveBannerTitle: document.getElementById('wave-banner-title'),
+          waveBannerSub: document.getElementById('wave-banner-sub'),
+          toastContainer: document.getElementById('toast-container'),
+          touchControls: document.getElementById('touch-controls'),
+
+          hudHpText: document.getElementById('hud-hp-text'),
+          hudHpBar: document.getElementById('hud-hp-bar'),
+          hudReloadText: document.getElementById('hud-reload-text'),
+          hudReloadBar: document.getElementById('hud-reload-bar'),
+          hudModeText: document.getElementById('hud-mode-text'),
+          hudViewText: document.getElementById('hud-view-text'),
+          hudWave: document.getElementById('hud-wave'),
+          hudScore: document.getElementById('hud-score'),
+          hudEnemies: document.getElementById('hud-enemies'),
+
+          pauseBtn: document.getElementById('pause-btn'),
+          lobbyReturnBtn: document.getElementById('lobby-return-btn'),
+          viewToggleBtn: document.getElementById('view-toggle-btn'),
+          viewToggleLabel: document.getElementById('view-toggle-label'),
+          soundToggleBtn: document.getElementById('sound-toggle-btn'),
+          soundIcon: document.getElementById('sound-icon'),
+          soundLabel: document.getElementById('sound-label'),
+
+          startBtn: document.getElementById('start-btn'),
+          startBtnLabel: document.getElementById('start-btn-label'),
+          resumeBtn: document.getElementById('resume-btn'),
+          pauseToggleFpsBtn: document.getElementById('pause-toggle-fps-btn'),
+          restartFromPauseBtn: document.getElementById('restart-from-pause-btn'),
+          pauseToLobbyBtn: document.getElementById('pause-to-lobby-btn'),
+          restartBtn: document.getElementById('restart-btn'),
+          gameoverToLobbyBtn: document.getElementById('gameover-to-lobby-btn'),
+
+          finalScore: document.getElementById('final-score'),
+          finalWave: document.getElementById('final-wave'),
+          finalKills: document.getElementById('final-kills'),
+          bestScore: document.getElementById('best-score'),
+          startBestScore: document.getElementById('start-best-score'),
+          pauseModeName: document.getElementById('pause-mode-name'),
+          pauseWave: document.getElementById('pause-wave'),
+
+          // 首頁與系統面板
+          lobbyCommanderName: document.getElementById('lobby-commander-name'),
+          lobbyVipBadge: document.getElementById('lobby-vip-badge'),
+          lobbyLoginStatus: document.getElementById('lobby-login-status'),
+          lobbyUid: document.getElementById('lobby-uid'),
+          lobbySeasonLv: document.getElementById('lobby-season-lv'),
+          lobbyGold: document.getElementById('lobby-gold'),
+          lobbyGems: document.getElementById('lobby-gems'),
+          lobbyFriendsCount: document.getElementById('lobby-friends-count'),
+          flashCountdown: document.getElementById('flash-countdown'),
+          modeCardsGrid: document.getElementById('mode-cards-grid'),
+          skinSelectorList: document.getElementById('skin-selector-list'),
+          activeSkinTag: document.getElementById('active-skin-tag'),
+          statMaxHp: document.getElementById('stat-max-hp'),
+          statDamage: document.getElementById('stat-damage'),
+          statReload: document.getElementById('stat-reload'),
+          statRewardMult: document.getElementById('stat-reward-mult'),
+
+          accountModal: document.getElementById('account-modal'),
+          accountCurrentInfo: document.getElementById('account-current-info'),
+          accountUidDisplay: document.getElementById('account-uid-display'),
+          loginNicknameInput: document.getElementById('login-nickname-input'),
+          loginEmailInput: document.getElementById('login-email-input'),
+
+          shopModal: document.getElementById('shop-modal'),
+          shopGold: document.getElementById('shop-gold'),
+          shopGems: document.getElementById('shop-gems'),
+          shopItemsContainer: document.getElementById('shop-items-container'),
+
+          eventsModal: document.getElementById('events-modal'),
+          eventsContentContainer: document.getElementById('events-content-container'),
+
+          vipModal: document.getElementById('vip-modal'),
+          vipStatusDesc: document.getElementById('vip-status-desc'),
+
+          checkoutModal: document.getElementById('checkout-modal'),
+          checkoutItemName: document.getElementById('checkout-item-name'),
+          checkoutItemReward: document.getElementById('checkout-item-reward'),
+          checkoutItemprice: document.getElementById('checkout-item-price'),
+
+          friendsModal: document.getElementById('friends-modal'),
+          friendSearchInput: document.getElementById('friend-search-input'),
+          friendsListContainer: document.getElementById('friends-list-container')
+        };
+
+        this.radarCtx = this.ui.radarCanvas ? this.ui.radarCanvas.getContext('2d') : null;
+
+        // 遊戲狀態
+        this.gameState = 'start'; // 'start' | 'playing' | 'paused' | 'gameover'
+        this.score = 0;
+        this.wave = 1;
+        this.kills = 0;
+        this.waveTransitionTimer = 0;
+        this.screenShake = 0;
+        this.isFirstPerson = false;
+        this.fpsYaw = Math.PI;
+        this.fpsPitch = -0.05;
+        this.flashSecondsLeft = 2 * 3600 + 14 * 60 + 38;
+        this.activeShopTab = 'upgrades';
+        this.activeEventTab = 'missions';
+        this.pendingCheckout = null;
+        this.selectedPayMethod = '信用卡 (VISA/Master)';
+
+        // 輸入狀態
+        this.keys = {};
+        this.mouseNDC = new THREE.Vector2(0, 0);
+        this.mouseScreen = { x: window.innerWidth * 0.5, y: window.innerHeight * 0.45 };
+        this.isMouseDown = false;
+        this.aimWorldPoint = new THREE.Vector3(0, 1, -25);
+
+        // 實體集合
+        this.obstacles = [];
+        this.enemies = [];
+        this.allies = [];
+        this.projectiles = [];
+        this.particles = [];
+        this.pickups = [];
+
+        this.initThree();
+        this.createArenaEnvironment();
+        this.createPlayer();
+        this.bindEvents();
+        this.renderLobbyUI();
+        this.setGameState('start');
+
+        this.lastTime = performance.now();
+        this.animate = this.animate.bind(this);
+        requestAnimationFrame(this.animate);
+      }
+
+      loadSaveState() {
+        const defaultState = {
+          bestScore: 0,
+          account: {
+            loggedIn: false,
+            nickname: '鐵騎指揮官',
+            email: '',
+            uid: 'CMD-884920'
+          },
+          vip: {
+            tier: 'none', // 'none' | 'monthly' | 'lifetime'
+            expiresAt: 0
+          },
+          economy: {
+            gold: 1200,
+            gems: 150,
+            firstTopupUsed: false
+          },
+          upgrades: {
+            hullLv: 1,
+            cannonLv: 1,
+            reloadLv: 1
+          },
+          skins: {
+            unlocked: ['forest'],
+            equipped: 'forest'
+          },
+          selectedMode: 'survival',
+          season: {
+            level: 1,
+            xp: 0,
+            claimedLevels: []
+          },
+          stats: {
+            kills: 0,
+            scoreEarned: 0,
+            wavesCleared: 0
+          },
+          missions: JSON.parse(JSON.stringify(DEFAULT_MISSIONS)),
+          friends: JSON.parse(JSON.stringify(DEFAULT_FRIENDS))
+        };
+
+        try {
+          const raw = localStorage.getItem('tank_warfare_3d_pro_save_v1');
+          if (!raw) return defaultState;
+          const parsed = JSON.parse(raw);
+          return {
+            ...defaultState,
+            ...parsed,
+            account: { ...defaultState.account, ...(parsed.account || {}) },
+            vip: { ...defaultState.vip, ...(parsed.vip || {}) },
+            economy: { ...defaultState.economy, ...(parsed.economy || {}) },
+            upgrades: { ...defaultState.upgrades, ...(parsed.upgrades || {}) },
+            skins: {
+              unlocked: Array.isArray(parsed.skins?.unlocked) && parsed.skins.unlocked.length ? parsed.skins.unlocked : ['forest'],
+              equipped: parsed.skins?.equipped || 'forest'
+            },
+            season: { ...defaultState.season, ...(parsed.season || {}) },
+            stats: { ...defaultState.stats, ...(parsed.stats || {}) },
+            missions: Array.isArray(parsed.missions) && parsed.missions.length ? parsed.missions : defaultState.missions,
+            friends: Array.isArray(parsed.friends) && parsed.friends.length ? parsed.friends : defaultState.friends
+          };
+        } catch (err) {
+          return defaultState;
+        }
+      }
+
+      persistSave() {
+        try {
+          localStorage.setItem('tank_warfare_3d_pro_save_v1', JSON.stringify(this.save));
+        } catch (err) {
+          // 忽略儲存空間限制錯誤
+        }
+      }
+
+      getVipRewardMultiplier() {
+        if (this.save.vip.tier === 'lifetime') return 1.75;
+        if (this.save.vip.tier === 'monthly' && Date.now() < this.save.vip.expiresAt) return 1.35;
+        return 1.0;
+      }
+
+      getComputedPlayerStats() {
+        const skin = SKINS_CONFIG[this.save.skins.equipped] || SKINS_CONFIG.forest;
+        const mode = GAME_MODES[this.save.selectedMode] || GAME_MODES.survival;
+        const maxHp = 100 + (this.save.upgrades.hullLv - 1) * 20 + skin.hpBonus;
+        const damage = 25 + (this.save.upgrades.cannonLv - 1) * 7 + skin.dmgBonus;
+        const reloadTime = Math.max(0.28, (0.72 - (this.save.upgrades.reloadLv - 1) * 0.06) * skin.reloadMult);
+        const rewardMult = Number((mode.rewardMult * this.getVipRewardMultiplier() * (1 + skin.rewardBonus)).toFixed(2));
+        return { maxHp, damage, reloadTime, rewardMult, skin, mode };
+      }
+
+      showToast(message, tone = 'amber') {
+        if (!this.ui.toastContainer) return;
+        const colorMap = {
+          amber: 'border-amber-400/50 text-amber-200 bg-slate-900/95',
+          emerald: 'border-emerald-400/50 text-emerald-200 bg-slate-900/95',
+          sky: 'border-sky-400/50 text-sky-200 bg-slate-900/95',
+          rose: 'border-rose-400/50 text-rose-200 bg-slate-900/95'
+        };
+        const el = document.createElement('div');
+        el.className = `rounded-xl border px-3.5 py-2.5 text-xs sm:text-sm font-bold shadow-2xl transition-all duration-300 ${colorMap[tone] || colorMap.amber}`;
+        el.textContent = message;
+        this.ui.toastContainer.appendChild(el);
+
+        setTimeout(() => {
+          el.style.opacity = '0';
+          el.style.transform = 'translateX(16px)';
+          setTimeout(() => el.remove(), 300);
+        }, 2600);
+      }
+
+      // =========================================================================
+      // 6. Three.js 場景、燈光、50X 地形與障礙物建構
+      // =========================================================================
+      initThree() {
+        const container = document.getElementById('game-container');
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x101924);
+        this.scene.fog = new THREE.FogExp2(0x101924, 0.0042);
+
+        const width = container.clientWidth || window.innerWidth;
+        const height = container.clientHeight || window.innerHeight;
+        this.camera = new THREE.PerspectiveCamera(52, width / height, 0.25, 650);
+        this.camera.position.set(0, 28, 42);
+
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        this.renderer.setSize(width, height);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.08;
+        container.appendChild(this.renderer.domElement);
+        this.canvas = this.renderer.domElement;
+
+        const hemiLight = new THREE.HemisphereLight(0xdbeafe, 0x3f2e21, 0.85);
+        hemiLight.position.set(0, 90, 0);
+        this.scene.add(hemiLight);
+
+        this.dirLight = new THREE.DirectionalLight(0xfffbeb, 1.35);
+        this.dirLight.position.set(65, 110, 55);
+        this.dirLight.castShadow = true;
+        this.dirLight.shadow.mapSize.width = 2048;
+        this.dirLight.shadow.mapSize.height = 2048;
+        this.dirLight.shadow.camera.near = 10;
+        this.dirLight.shadow.camera.far = 280;
+        const d = 120;
+        this.dirLight.shadow.camera.left = -d;
+        this.dirLight.shadow.camera.right = d;
+        this.dirLight.shadow.camera.top = d;
+        this.dirLight.shadow.camera.bottom = -d;
+        this.dirLight.shadow.bias = -0.0005;
+        this.scene.add(this.dirLight);
+        this.scene.add(this.dirLight.target);
+
+        const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.35);
+        rimLight.position.set(-70, 45, -60);
+        this.scene.add(rimLight);
+
+        this.raycaster = new THREE.Raycaster();
+        this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+        const ringGeo = new THREE.RingGeometry(1.1, 1.55, 28);
+        ringGeo.rotateX(-Math.PI / 2);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: 0xfbbf24,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.72
+        });
+        this.aimIndicator = new THREE.Mesh(ringGeo, ringMat);
+        this.scene.add(this.aimIndicator);
+      }
+
+      createArenaEnvironment() {
+        const size = ARENA_HALF_SIZE * 2;
+        const groundGeo = new THREE.PlaneGeometry(size, size, TERRAIN_SEGMENTS, TERRAIN_SEGMENTS);
+        groundGeo.rotateX(-Math.PI / 2);
+
+        const posAttr = groundGeo.attributes.position;
+        const colors = new Float32Array(posAttr.count * 3);
+
+        const cLow = new THREE.Color(0x273629);
+        const cMid = new THREE.Color(0x384632);
+        const cHigh = new THREE.Color(0x57534e);
+
+        for (let i = 0; i < posAttr.count; i++) {
+          const x = posAttr.getX(i);
+          const z = posAttr.getZ(i);
+          const y = getTerrainHeight(x, z);
+          posAttr.setY(i, y);
+
+          const c = new THREE.Color();
+          if (y < 0.8) {
+            c.lerpColors(cLow, cMid, THREE.MathUtils.clamp((y + 3) / 3.8, 0, 1));
+          } else {
+            c.lerpColors(cMid, cHigh, THREE.MathUtils.clamp((y - 0.8) / 2.8, 0, 1));
+          }
+          colors[i * 3] = c.r;
+          colors[i * 3 + 1] = c.g;
+          colors[i * 3 + 2] = c.b;
+        }
+
+        groundGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        groundGeo.computeVertexNormals();
+
+        const groundMat = new THREE.MeshStandardMaterial({
+          vertexColors: true,
+          roughness: 0.88,
+          metalness: 0.08
+        });
+
+        const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+        groundMesh.receiveShadow = true;
+        this.scene.add(groundMesh);
+
+        const gridHelper = new THREE.GridHelper(size, 64, 0x64748b, 0x334155);
+        gridHelper.position.y = 0.06;
+        gridHelper.material.transparent = true;
+        gridHelper.material.opacity = 0.14;
+        this.scene.add(gridHelper);
+
+        // 50X 巨幅戰場邊界圍牆
+        const wallMat = new THREE.MeshStandardMaterial({
+          color: 0x1e293b,
+          roughness: 0.6,
+          metalness: 0.5
+        });
+        const wallHeight = 6.5;
+        const wallThickness = 4;
+
+        const walls = [
+          { x: 0, z: -ARENA_HALF_SIZE, w: size + wallThickness * 2, d: wallThickness },
+          { x: 0, z: ARENA_HALF_SIZE, w: size + wallThickness * 2, d: wallThickness },
+          { x: -ARENA_HALF_SIZE, z: 0, w: wallThickness, d: size },
+          { x: ARENA_HALF_SIZE, z: 0, w: wallThickness, d: size }
+        ];
+
+        walls.forEach((w) => {
+          const geo = new THREE.BoxGeometry(w.w, wallHeight, w.d);
+          const mesh = new THREE.Mesh(geo, wallMat);
+          mesh.position.set(w.x, getTerrainHeight(w.x, w.z) + wallHeight * 0.5 - 1, w.z);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          this.scene.add(mesh);
+        });
+
+        // 巨幅戰場掩體與岩石群（分佈於 640x640 區域）
+        const bunkerMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.72, metalness: 0.3 });
+        const rockMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.85, metalness: 0.12 });
+
+        let seed = 1337;
+        const rand = () => {
+          seed = (seed * 16807) % 2147483647;
+          return (seed - 1) / 2147483646;
+        };
+
+        let placed = 0;
+        let guard = 0;
+        while (placed < 84 && guard < 900) {
+          guard++;
+          const x = (rand() * 2 - 1) * (ARENA_HALF_SIZE - 26);
+          const z = (rand() * 2 - 1) * (ARENA_HALF_SIZE - 26);
+
+          if (Math.hypot(x, z) < 22) continue;
+
+          let tooClose = false;
+          for (const ob of this.obstacles) {
+            if (Math.hypot(x - ob.x, z - ob.z) < 20) {
+              tooClose = true;
+              break;
+            }
+          }
+          if (tooClose) continue;
+
+          const gy = getTerrainHeight(x, z);
+          const isBunker = rand() < 0.58;
+
+          if (isBunker) {
+            const w = 5.4 + rand() * 3.8;
+            const h = 3.2 + rand() * 2.2;
+            const d = 5.4 + rand() * 3.8;
+            const geo = new THREE.BoxGeometry(w, h, d);
+            const mesh = new THREE.Mesh(geo, bunkerMat);
+            mesh.position.set(x, gy + h * 0.42, z);
+            mesh.rotation.y = rand() * Math.PI;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            this.scene.add(mesh);
+            this.obstacles.push({ x, z, radius: Math.max(w, d) * 0.56 });
+          } else {
+            const r = 2.6 + rand() * 2.4;
+            const geo = new THREE.DodecahedronGeometry(r, 1);
+            const mesh = new THREE.Mesh(geo, rockMat);
+            mesh.position.set(x, gy + r * 0.55, z);
+            mesh.rotation.set(rand() * 0.4, rand() * Math.PI * 2, rand() * 0.4);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            this.scene.add(mesh);
+            this.obstacles.push({ x, z, radius: r * 0.95 });
+          }
+          placed++;
+        }
+      }
+
+      createPlayer() {
+        const stats = this.getComputedPlayerStats();
+        const visual = createTankMesh({
+          bodyColor: stats.skin.bodyColor,
+          turretColor: stats.skin.turretColor,
+          accentColor: stats.skin.accentColor,
+          isArtillery: false,
+          isPlayer: true
+        });
+        this.scene.add(visual.root);
+
+        this.player = {
+          visual,
+          x: 0,
+          z: 35,
+          bodyYaw: Math.PI,
+          turretYaw: Math.PI,
+          speed: 16.5,
+          turnSpeed: 3.2,
+          hp: stats.maxHp,
+          maxHp: stats.maxHp,
+          damage: stats.damage,
+          reloadTime: stats.reloadTime,
+          reloadTimer: 0,
+          radius: visual.collisionRadius,
+          hitFlash: 0,
+          boosterTimer: 0
+        };
+      }
+
+      applyPlayerStatsAndSkin() {
+        const stats = this.getComputedPlayerStats();
+        const oldPos = this.player ? { x: this.player.x, z: this.player.z } : { x: 0, z: 35 };
+        if (this.player && this.player.visual && this.player.visual.root) {
+          this.scene.remove(this.player.visual.root);
+        }
+
+        const visual = createTankMesh({
+          bodyColor: stats.skin.bodyColor,
+          turretColor: stats.skin.turretColor,
+          accentColor: stats.skin.accentColor,
+          isArtillery: false,
+          isPlayer: true
+        });
+        this.scene.add(visual.root);
+
+        this.player = {
+          visual,
+          x: oldPos.x,
+          z: oldPos.z,
+          bodyYaw: Math.PI,
+          turretYaw: Math.PI,
+          speed: 16.5,
+          turnSpeed: 3.2,
+          hp: stats.maxHp,
+          maxHp: stats.maxHp,
+          damage: stats.damage,
+          reloadTime: stats.reloadTime,
+          reloadTimer: 0,
+          radius: visual.collisionRadius,
+          hitFlash: 0,
+          boosterTimer: this.player ? this.player.boosterTimer : 0
+        };
+      }
+
+      // =========================================================================
+      // 7. 遊戲流程、50v50 戰場與視角切換
+      // =========================================================================
+      setGameState(nextState) {
+        this.gameState = nextState;
+
+        this.ui.startScreen.classList.toggle('hidden', nextState !== 'start');
+        this.ui.pauseScreen.classList.toggle('hidden', nextState !== 'paused');
+        this.ui.gameoverScreen.classList.toggle('hidden', nextState !== 'gameover');
+
+        const showHud = nextState === 'playing' || nextState === 'paused';
+        this.ui.hudTop.classList.toggle('hidden', !showHud);
+        this.ui.crosshair.classList.toggle('hidden', nextState !== 'playing');
+
+        const inBattle = nextState === 'playing' || nextState === 'paused';
+        if (this.ui.pauseBtn) {
+          this.ui.pauseBtn.classList.toggle('hidden', !inBattle);
+          this.ui.pauseBtn.classList.toggle('flex', inBattle);
+        }
+        if (this.ui.lobbyReturnBtn) {
+          this.ui.lobbyReturnBtn.classList.toggle('hidden', !inBattle);
+          this.ui.lobbyReturnBtn.classList.toggle('flex', inBattle);
+        }
+        if (this.ui.viewToggleBtn) {
+          this.ui.viewToggleBtn.classList.toggle('hidden', !inBattle);
+          this.ui.viewToggleBtn.classList.toggle('flex', inBattle);
+        }
+
+        if (this.ui.radarWidget) {
+          this.ui.radarWidget.classList.toggle('hidden', nextState !== 'playing');
+        }
+
+        const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+        if (this.ui.touchControls) {
+          this.ui.touchControls.classList.toggle('hidden', !(nextState === 'playing' && isTouchDevice));
+        }
+
+        if (nextState === 'start') {
+          this.renderLobbyUI();
+        } else if (nextState === 'paused') {
+          const mode = GAME_MODES[this.save.selectedMode] || GAME_MODES.survival;
+          this.ui.pauseModeName.textContent = mode.name;
+          this.ui.pauseWave.textContent = String(this.wave);
+        }
+
+        if (nextState !== 'playing') {
+          this.isMouseDown = false;
+          this.keys = {};
+          if (document.pointerLockElement === this.canvas) {
+            document.exitPointerLock?.();
+          }
+        }
+      }
+
+      startNewGame() {
+        this.sound.unlock();
+        this.resetMatch();
+        this.setGameState('playing');
+      }
+
+      resetMatch() {
+        this.enemies.forEach((e) => this.scene.remove(e.visual.root));
+        this.enemies = [];
+
+        this.allies.forEach((a) => this.scene.remove(a.visual.root));
+        this.allies = [];
+
+        this.projectiles.forEach((p) => this.scene.remove(p.mesh));
+        this.projectiles = [];
+
+        this.particles.forEach((pt) => this.scene.remove(pt.mesh));
+        this.particles = [];
+
+        this.pickups.forEach((pk) => this.scene.remove(pk.mesh));
+        this.pickups = [];
+
+        this.applyPlayerStatsAndSkin();
+
+        this.score = 0;
+        this.wave = 1;
+        this.kills = 0;
+        this.screenShake = 0;
+
+        this.player.x = 0;
+        this.player.z = 35;
+        this.player.bodyYaw = Math.PI;
+        this.player.turretYaw = Math.PI;
+        this.fpsYaw = Math.PI;
+        this.fpsPitch = -0.05;
+        this.player.hp = this.player.maxHp;
+        this.player.reloadTimer = 0;
+        this.player.hitFlash = 0;
+
+        const mode = GAME_MODES[this.save.selectedMode] || GAME_MODES.survival;
+        this.ui.hudModeText.textContent = mode.name;
+        this.setFirstPersonMode(Boolean(mode.defaultFps), false);
+
+        this.updateHUD();
+        this.startWave(1);
+      }
+
+      setFirstPersonMode(enabled, notify = true) {
+        this.isFirstPerson = Boolean(enabled);
+        if (this.player && this.player.visual && this.player.visual.root) {
+          this.player.visual.root.visible = !this.isFirstPerson;
+        }
+        if (this.ui.hudViewText) {
+          this.ui.hudViewText.textContent = this.isFirstPerson ? '第一人稱 FPS (按 V 切換)' : '戰術俯瞰 (按 V 切換 FPS)';
+        }
+        if (this.ui.viewToggleLabel) {
+          this.ui.viewToggleLabel.textContent = this.isFirstPerson ? '戰術視角' : '第一人稱';
+        }
+        if (this.ui.crosshair && this.gameState === 'playing') {
+          if (this.isFirstPerson) {
+            this.ui.crosshair.style.left = '50%';
+            this.ui.crosshair.style.top = '50%';
+          } else {
+            this.ui.crosshair.style.left = `${this.mouseScreen.x}px`;
+            this.ui.crosshair.style.top = `${this.mouseScreen.y}px`;
+          }
+        }
+        if (notify) {
+          this.showToast(
+            this.isFirstPerson ? '🎯 已切換至第一人稱（FPS）前線視野' : '🛰️ 已切換至戰術俯瞰視野',
+            'amber'
+          );
+        }
+      }
+
+      startWave(waveNum) {
+        this.wave = waveNum;
+        this.waveTransitionTimer = 2.4;
+        this.sound.playWaveFanfare();
+
+        const mode = GAME_MODES[this.save.selectedMode] || GAME_MODES.survival;
+
+        this.ui.waveBannerTitle.textContent = mode.is50v50
+          ? `50v50 史詩會戰 · 第 ${waveNum} 階段`
+          : `第 ${waveNum} 波敵軍來襲 · ${mode.name}`;
+        this.ui.waveBannerSub.textContent = mode.is50v50
+          ? '49 名藍軍戰友與 50 名紅軍部隊展開大規模交火！'
+          : waveNum > 1
+          ? '裝甲修復 +25 HP！善用 50X 戰術雷達鎖定敵軍'
+          : '摧毀所有敵方坦克與重型砲兵';
+        this.ui.waveBanner.classList.remove('hidden');
+
+        if (waveNum > 1) {
+          this.player.hp = Math.min(this.player.maxHp, this.player.hp + 25);
+          this.recordMissionProgress('wavesCleared', 1);
+          this.grantSeasonXp(80);
+          this.showToast('🛠️ 波次補給：裝甲恢復 +25 HP 與 +80 賽季 EXP', 'emerald');
+        }
+
+        if (mode.is50v50) {
+          const targetAllies = 49;
+          const targetEnemies = 50;
+          while (this.allies.length < targetAllies) {
+            const pos = this.findSafeSpawnPosition(true);
+            this.spawnCombatant('ally', waveNum % 3 === 0 ? 'artillery' : 'tank', pos.x, pos.z);
+          }
+          while (this.enemies.length < targetEnemies) {
+            const pos = this.findSafeSpawnPosition(false);
+            this.spawnCombatant('enemy', Math.random() < 0.25 ? 'artillery' : 'tank', pos.x, pos.z);
+          }
+          this.updateHUD();
+          return;
+        }
+
+        const totalEnemies = Math.min(18, 4 + waveNum * 2 + mode.enemyCountBonus);
+        const artilleryCount = mode.artilleryFocus
+          ? Math.max(2, Math.floor(totalEnemies * 0.6))
+          : waveNum >= 2
+          ? Math.min(5, Math.floor(waveNum / 2) + 1)
+          : 0;
+
+        for (let i = 0; i < totalEnemies; i++) {
+          const type = i < artilleryCount ? 'artillery' : 'tank';
+          const pos = this.findSafeSpawnPosition(false);
+          this.spawnEnemy(type, pos.x, pos.z);
+        }
+
+        this.updateHUD();
+      }
+
+      findSafeSpawnPosition(isAllySide = false) {
+        for (let attempt = 0; attempt < 50; attempt++) {
+          const angle = Math.random() * Math.PI * 2;
+          const dist = 48 + Math.random() * 240;
+          let x = THREE.MathUtils.clamp(this.player.x + Math.cos(angle) * dist, -ARENA_HALF_SIZE + 14, ARENA_HALF_SIZE - 14);
+          let z = THREE.MathUtils.clamp(this.player.z + Math.sin(angle) * dist, -ARENA_HALF_SIZE + 14, ARENA_HALF_SIZE - 14);
+
+          if (this.save.selectedMode === 'fps50v50') {
+            x = (Math.random() - 0.5) * (ARENA_HALF_SIZE * 1.65);
+            z = isAllySide
+              ? 35 + Math.random() * (ARENA_HALF_SIZE * 0.78)
+              : -35 - Math.random() * (ARENA_HALF_SIZE * 0.78);
+          }
+
+          if (!isAllySide && Math.hypot(x - this.player.x, z - this.player.z) < 36) continue;
+
+          let hitObstacle = false;
+          for (const ob of this.obstacles) {
+            if (Math.hypot(x - ob.x, z - ob.z) < ob.radius + 4.5) {
+              hitObstacle = true;
+              break;
+            }
+          }
+          if (hitObstacle) continue;
+
+          let hitEnemy = false;
+          for (const en of this.enemies) {
+            if (Math.hypot(x - en.x, z - en.z) < 9.0) {
+              hitEnemy = true;
+              break;
+            }
+          }
+          if (hitEnemy) continue;
+
+          let hitAlly = false;
+          for (const al of this.allies) {
+            if (Math.hypot(x - al.x, z - al.z) < 8.5) {
+              hitAlly = true;
+              break;
+            }
+          }
+          if (!hitAlly) return { x, z };
+        }
+        return { x: this.player.x + (Math.random() - 0.5) * 90, z: isAllySide ? this.player.z + 40 : this.player.z - 65 };
+      }
+
+      spawnEnemy(type, x, z) {
+        this.spawnCombatant('enemy', type, x, z);
+      }
+
+      spawnCombatant(faction, type, x, z) {
+        const isAlly = faction === 'ally';
+        const isArtillery = type === 'artillery';
+        const mode = GAME_MODES[this.save.selectedMode] || GAME_MODES.survival;
+        const waveScale = (1 + (this.wave - 1) * 0.14) * (this.save.selectedMode === 'ranked' ? 1.25 : 1.0);
+
+        const visual = createTankMesh({
+          bodyColor: isAlly ? (isArtillery ? 0x0369a1 : 0x1d4ed8) : (isArtillery ? 0x9a3412 : 0x991b1b),
+          turretColor: isAlly ? (isArtillery ? 0x0284c7 : 0x2563eb) : (isArtillery ? 0xea580c : 0xdc2626),
+          accentColor: isAlly ? 0x38bdf8 : (isArtillery ? 0xfbbf24 : 0xf43f5e),
+          isArtillery,
+          isPlayer: false
+        });
+        this.scene.add(visual.root);
+
+        const maxHp = Math.round((isArtillery ? 50 : 38) * waveScale);
+        const unit = {
+          id: Math.random().toString(36).slice(2, 9),
+          faction,
+          type,
+          isArtillery,
+          visual,
+          x,
+          z,
+          bodyYaw: isAlly ? Math.PI : 0,
+          turretYaw: isAlly ? Math.PI : 0,
+          speed: (isArtillery ? 6.8 : 10.6 + Math.min(3.5, this.wave * 0.2)) * mode.enemySpeedMult,
+          turnSpeed: isArtillery ? 1.7 : 2.5,
+          hp: maxHp,
+          maxHp,
+          radius: visual.collisionRadius,
+          fireCooldown: isArtillery ? 2.4 : 1.75,
+          fireTimer: 0.8 + Math.random() * 1.8,
+          strafeDir: Math.random() < 0.5 ? -1 : 1,
+          strafeTimer: 1.5 + Math.random() * 2.2,
+          hitFlash: 0
+        };
+
+        if (isAlly) {
+          this.allies.push(unit);
+        } else {
+          this.enemies.push(unit);
+        }
+      }
+
+      triggerGameOver() {
+        this.sound.playExplosion(1.6);
+        this.spawnExplosion(this.player.x, getTerrainHeight(this.player.x, this.player.z) + 1.4, this.player.z, 2.2, 0xfbbf24, 52);
+
+        if (this.score > this.save.bestScore) {
+          this.save.bestScore = this.score;
+        }
+        this.persistSave();
+
+        this.ui.finalScore.textContent = String(this.score);
+        this.ui.finalWave.textContent = String(this.wave);
+        this.ui.finalKills.textContent = String(this.kills);
+        this.ui.bestScore.textContent = String(this.save.bestScore);
+
+        this.setGameState('gameover');
+      }
+
+      // =========================================================================
+      // 8. 戰鬥邏輯、武器系統與粒子特效
+      // =========================================================================
+      fireProjectile({ origin, direction, isPlayer, faction = null, isArtillery = false, targetPos = null }) {
+        const resolvedFaction = faction || (isPlayer ? 'ally' : 'enemy');
+        const speed = isArtillery ? 40 : isPlayer ? 68 : 46;
+        const damage = isPlayer ? this.player.damage : isArtillery ? 20 : 11;
+        const splashRadius = isArtillery ? 5.8 : isPlayer ? 2.5 : 1.6;
+
+        const geo = new THREE.SphereGeometry(isArtillery ? 0.42 : isPlayer ? 0.28 : 0.24, 10, 10);
+        const mat = new THREE.MeshBasicMaterial({
+          color: resolvedFaction === 'ally' ? 0xfacc15 : isArtillery ? 0xf97316 : 0xf43f5e
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.copy(origin);
+        this.scene.add(mesh);
+
+        let vx = direction.x * speed;
+        let vy = direction.y * speed;
+        let vz = direction.z * speed;
+
+        if (isArtillery && targetPos) {
+          const dx = targetPos.x - origin.x;
+          const dz = targetPos.z - origin.z;
+          const horizDist = Math.hypot(dx, dz);
+          const flightTime = Math.max(0.55, horizDist / speed);
+          const gravity = 22;
+          vx = dx / flightTime;
+          vz = dz / flightTime;
+          vy = (targetPos.y - origin.y + 0.5 * gravity * flightTime * flightTime) / flightTime;
+        }
+
+        this.projectiles.push({
+          mesh,
+          vx,
+          vy,
+          vz,
+          gravity: isArtillery ? 22 : 1.8,
+          isPlayer,
+          faction: resolvedFaction,
+          isArtillery,
+          damage,
+          splashRadius,
+          life: 5.0
+        });
+
+        this.spawnMuzzleFlash(origin, resolvedFaction === 'ally' ? 0xfde047 : 0xfb7185);
+        if (isPlayer || Math.hypot(origin.x - this.player.x, origin.z - this.player.z) < 85) {
+          this.sound.playCannonShot(isArtillery || isPlayer);
+        }
+        if (isPlayer) {
+          this.screenShake = Math.max(this.screenShake, this.isFirstPerson ? 0.22 : 0.14);
+        }
+      }
+
+      spawnMuzzleFlash(pos, colorHex) {
+        const geo = new THREE.SphereGeometry(0.55, 8, 8);
+        const mat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.9 });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.copy(pos);
+        this.scene.add(mesh);
+        this.particles.push({
+          mesh,
+          vx: 0,
+          vy: 0.6,
+          vz: 0,
+          life: 0.08,
+          maxLife: 0.08,
+          scaleSpeed: 14
+        });
+      }
+
+      spawnExplosion(x, y, z, scale = 1.0, primaryColor = 0xf97316, count = 28) {
+        const palette = [primaryColor, 0xfacc15, 0xef4444, 0x94a3b8];
+        for (let i = 0; i < count; i++) {
+          const r = (0.16 + Math.random() * 0.34) * scale;
+          const geo = new THREE.DodecahedronGeometry(r, 0);
+          const color = palette[i % palette.length];
+          const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 });
+          const mesh = new THREE.Mesh(geo, mat);
+          mesh.position.set(x, y, z);
+          this.scene.add(mesh);
+
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.random() * Math.PI * 0.65;
+          const spd = (5 + Math.random() * 16) * scale;
+
+          this.particles.push({
+            mesh,
+            vx: Math.cos(theta) * Math.sin(phi) * spd,
+            vy: Math.cos(phi) * spd + 3.5 * scale,
+            vz: Math.sin(theta) * Math.sin(phi) * spd,
+            life: 0.45 + Math.random() * 0.45,
+            maxLife: 0.9,
+            scaleSpeed: -0.6
+          });
+        }
+      }
+
+      spawnRepairPickup(x, z) {
+        const group = new THREE.Group();
+        const baseY = getTerrainHeight(x, z) + 0.9;
+        group.position.set(x, baseY, z);
+
+        const boxGeo = new THREE.BoxGeometry(1.3, 1.3, 1.3);
+        const boxMat = new THREE.MeshStandardMaterial({
+          color: 0x10b981,
+          emissive: 0x059669,
+          emissiveIntensity: 0.45,
+          roughness: 0.3
+        });
+        const box = new THREE.Mesh(boxGeo, boxMat);
+        box.castShadow = true;
+        group.add(box);
+
+        const crossMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const hBar = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.25, 1.36), crossMat);
+        const vBar = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.85, 1.36), crossMat);
+        group.add(hBar);
+        group.add(vBar);
+
+        this.scene.add(group);
+        this.pickups.push({
+          mesh: group,
+          x,
+          z,
+          healAmount: 30,
+          life: 18,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+
+      detonateProjectile(proj, hitX, hitY, hitZ) {
+        this.scene.remove(proj.mesh);
+        this.spawnExplosion(hitX, hitY, hitZ, proj.isArtillery ? 1.55 : 0.95, proj.faction === 'ally' ? 0xfacc15 : 0xf97316, proj.isArtillery ? 30 : 16);
+
+        if (proj.isArtillery || Math.hypot(hitX - this.player.x, hitZ - this.player.z) < 65) {
+          this.sound.playExplosion(proj.isArtillery ? 1.35 : 0.8);
+        }
+
+        if (proj.faction === 'ally') {
+          for (let i = this.enemies.length - 1; i >= 0; i--) {
+            const en = this.enemies[i];
+            const dist = Math.hypot(en.x - hitX, en.z - hitZ);
+            if (dist <= en.radius + proj.splashRadius) {
+              const falloff = dist <= en.radius + 0.6 ? 1.0 : 0.6;
+              this.damageEnemy(i, Math.round(proj.damage * falloff), proj.isPlayer);
+            }
+          }
+        } else {
+          for (let i = this.allies.length - 1; i >= 0; i--) {
+            const al = this.allies[i];
+            const dist = Math.hypot(al.x - hitX, al.z - hitZ);
+            if (dist <= al.radius + proj.splashRadius) {
+              const falloff = dist <= al.radius + 0.6 ? 1.0 : 0.6;
+              this.damageAlly(i, Math.round(proj.damage * falloff));
+            }
+          }
+          const distToPlayer = Math.hypot(this.player.x - hitX, this.player.z - hitZ);
+          if (distToPlayer <= this.player.radius + proj.splashRadius) {
+            const falloff = distToPlayer <= this.player.radius + 0.6 ? 1.0 : 0.55;
+            this.damagePlayer(Math.round(proj.damage * falloff));
+          }
+        }
+      }
+
+      damageAlly(index, amount) {
+        const al = this.allies[index];
+        if (!al) return;
+        al.hp -= amount;
+        al.hitFlash = 0.12;
+        if (al.hp <= 0) {
+          const groundY = getTerrainHeight(al.x, al.z) + 1.1;
+          this.spawnExplosion(al.x, groundY, al.z, 1.35, 0x38bdf8, 24);
+          this.scene.remove(al.visual.root);
+          this.allies.splice(index, 1);
+        }
+      }
+
+      damageEnemy(index, amount, creditedToPlayer = true) {
+        const en = this.enemies[index];
+        if (!en) return;
+        en.hp -= amount;
+        en.hitFlash = 0.12;
+        if (creditedToPlayer) this.sound.playHit();
+
+        if (en.hp <= 0) {
+          const groundY = getTerrainHeight(en.x, en.z) + 1.2;
+          this.spawnExplosion(en.x, groundY, en.z, en.isArtillery ? 1.9 : 1.55, 0xf97316, 38);
+          this.sound.playExplosion(en.isArtillery ? 1.6 : 1.3);
+          this.screenShake = Math.max(this.screenShake, creditedToPlayer ? 0.45 : 0.18);
+
+          this.scene.remove(en.visual.root);
+          this.enemies.splice(index, 1);
+
+          this.kills += 1;
+          const mode = GAME_MODES[this.save.selectedMode] || GAME_MODES.survival;
+          const vipMult = this.getVipRewardMultiplier();
+          const boosterMult = this.player.boosterTimer > 0 ? 1.5 : 1.0;
+          const totalMult = mode.rewardMult * vipMult * boosterMult * (creditedToPlayer ? 1.0 : 0.45);
+
+          const basePts = (en.isArtillery ? 250 : 150) + (this.wave - 1) * 25;
+          const pts = Math.round(basePts * totalMult);
+          const goldEarned = Math.round((en.isArtillery ? 75 : 45) * totalMult);
+
+          this.score += pts;
+          this.save.economy.gold += goldEarned;
+          this.recordMissionProgress('kills', 1);
+          this.recordMissionProgress('scoreEarned', pts);
+          this.grantSeasonXp(Math.round((en.isArtillery ? 45 : 30) * totalMult));
+          this.persistSave();
+
+          if (creditedToPlayer) {
+            this.showToast(`💥 擊毀${en.isArtillery ? '重型砲兵' : '敵方坦克'} +${pts}分 / +${goldEarned}🪙`, 'amber');
+          }
+
+          if (Math.random() < 0.28) {
+            this.spawnRepairPickup(en.x, en.z);
+          }
+
+          this.updateHUD();
+        }
+      }
+
+      damagePlayer(amount) {
+        if (this.gameState !== 'playing') return;
+        this.player.hp = Math.max(0, this.player.hp - amount);
+        this.player.hitFlash = 0.16;
+        this.screenShake = Math.max(this.screenShake, 0.35);
+        this.sound.playHit();
+        this.updateHUD();
+
+        if (this.player.hp <= 0) {
+          this.triggerGameOver();
+        }
+      }
+
+      // =========================================================================
+      // 9. 玩家移動、50v50 陣營 AI、砲彈與攝影機更新
+      // =========================================================================
+      updatePlayer(dt) {
+        const p = this.player;
+        if (p.boosterTimer > 0) {
+          p.boosterTimer = Math.max(0, p.boosterTimer - dt);
+        }
+
+        let moveForward = 0;
+        let moveRight = 0;
+        if (this.keys['KeyW'] || this.keys['ArrowUp']) moveForward += 1;
+        if (this.keys['KeyS'] || this.keys['ArrowDown']) moveForward -= 1;
+        if (this.keys['KeyD'] || this.keys['ArrowRight']) moveRight += 1;
+        if (this.keys['KeyA'] || this.keys['ArrowLeft']) moveRight -= 1;
+
+        if (moveForward !== 0 || moveRight !== 0) {
+          let dirX = 0;
+          let dirZ = 0;
+          if (this.isFirstPerson) {
+            const fwdX = Math.sin(this.fpsYaw);
+            const fwdZ = Math.cos(this.fpsYaw);
+            const rightX = -Math.cos(this.fpsYaw);
+            const rightZ = Math.sin(this.fpsYaw);
+            dirX = fwdX * moveForward + rightX * moveRight;
+            dirZ = fwdZ * moveForward + rightZ * moveRight;
+          } else {
+            dirX = moveRight;
+            dirZ = -moveForward;
+          }
+          const len = Math.hypot(dirX, dirZ) || 1;
+          dirX /= len;
+          dirZ /= len;
+
+          const spdMult = p.boosterTimer > 0 ? 1.25 : 1.0;
+          p.x += dirX * p.speed * spdMult * dt;
+          p.z += dirZ * p.speed * spdMult * dt;
+
+          const desiredYaw = Math.atan2(dirX, dirZ);
+          p.bodyYaw = this.lerpAngle(p.bodyYaw, desiredYaw, Math.min(1, dt * p.turnSpeed * 3));
+        }
+
+        this.resolveCollisions(p);
+
+        if (this.isFirstPerson) {
+          const lookDist = 90;
+          const dirX = Math.sin(this.fpsYaw) * Math.cos(this.fpsPitch);
+          const dirY = Math.sin(this.fpsPitch);
+          const dirZ = Math.cos(this.fpsYaw) * Math.cos(this.fpsPitch);
+          const eyeY = getTerrainHeight(p.x, p.z) + 2.35;
+          this.aimWorldPoint.set(
+            p.x + dirX * lookDist,
+            Math.max(getTerrainHeight(p.x + dirX * lookDist, p.z + dirZ * lookDist) + 0.5, eyeY + dirY * lookDist),
+            p.z + dirZ * lookDist
+          );
+          p.turretYaw = this.fpsYaw;
+        } else {
+          this.raycaster.setFromCamera(this.mouseNDC, this.camera);
+          const hitPoint = new THREE.Vector3();
+          if (this.raycaster.ray.intersectPlane(this.groundPlane, hitPoint)) {
+            hitPoint.x = THREE.MathUtils.clamp(hitPoint.x, -ARENA_HALF_SIZE, ARENA_HALF_SIZE);
+            hitPoint.z = THREE.MathUtils.clamp(hitPoint.z, -ARENA_HALF_SIZE, ARENA_HALF_SIZE);
+            hitPoint.y = getTerrainHeight(hitPoint.x, hitPoint.z);
+            this.aimWorldPoint.copy(hitPoint);
+          }
+
+          const dxAim = this.aimWorldPoint.x - p.x;
+          const dzAim = this.aimWorldPoint.z - p.z;
+          if (Math.hypot(dxAim, dzAim) > 0.2) {
+            const desiredYaw = Math.atan2(dxAim, dzAim);
+            p.turretYaw = this.lerpAngle(p.turretYaw, desiredYaw, Math.min(1, dt * 12));
+          }
+        }
+
+        this.aimIndicator.position.set(this.aimWorldPoint.x, this.aimWorldPoint.y + 0.08, this.aimWorldPoint.z);
+
+        if (p.reloadTimer > 0) {
+          p.reloadTimer = Math.max(0, p.reloadTimer - dt);
+        }
+
+        const wantsFire = this.isMouseDown || this.keys['Space'];
+        if (wantsFire && p.reloadTimer <= 0) {
+          p.reloadTimer = p.reloadTime;
+          const shotDir = this.isFirstPerson
+            ? new THREE.Vector3(
+                Math.sin(this.fpsYaw) * Math.cos(this.fpsPitch),
+                Math.sin(this.fpsPitch),
+                Math.cos(this.fpsYaw) * Math.cos(this.fpsPitch)
+              ).normalize()
+            : new THREE.Vector3(Math.sin(p.turretYaw), 0, Math.cos(p.turretYaw)).normalize();
+
+          const origin = this.isFirstPerson
+            ? new THREE.Vector3(
+                p.x + shotDir.x * 2.6,
+                getTerrainHeight(p.x, p.z) + 2.25 + shotDir.y * 1.4,
+                p.z + shotDir.z * 2.6
+              )
+            : (() => {
+                const mp = new THREE.Vector3();
+                p.visual.muzzlePoint.getWorldPosition(mp);
+                return mp;
+              })();
+
+          this.fireProjectile({
+            origin,
+            direction: shotDir,
+            isPlayer: true,
+            faction: 'ally',
+            isArtillery: false
+          });
+        }
+
+        const groundY = getTerrainHeight(p.x, p.z);
+        p.visual.root.position.set(p.x, groundY, p.z);
+        p.visual.root.rotation.y = p.bodyYaw;
+        p.visual.turretGroup.rotation.y = p.turretYaw - p.bodyYaw;
+
+        if (p.hitFlash > 0) {
+          p.hitFlash = Math.max(0, p.hitFlash - dt);
+        }
+
+        for (let i = this.pickups.length - 1; i >= 0; i--) {
+          const pk = this.pickups[i];
+          pk.life -= dt;
+          pk.phase += dt * 3.5;
+          pk.mesh.position.y = getTerrainHeight(pk.x, pk.z) + 0.9 + Math.sin(pk.phase) * 0.22;
+          pk.mesh.rotation.y += dt * 1.8;
+
+          if (Math.hypot(p.x - pk.x, p.z - pk.z) <= p.radius + 1.8) {
+            p.hp = Math.min(p.maxHp, p.hp + pk.healAmount);
+            this.sound.playPickup();
+            this.showToast(`🛠️ 拾取修復箱：裝甲恢復 +${pk.healAmount} HP`, 'emerald');
+            this.scene.remove(pk.mesh);
+            this.pickups.splice(i, 1);
+            this.updateHUD();
+            continue;
+          }
+
+          if (pk.life <= 0) {
+            this.scene.remove(pk.mesh);
+            this.pickups.splice(i, 1);
+          }
+        }
+
+        this.updateReloadHUD();
+      }
+
+      resolveCollisions(entity) {
+        const limit = ARENA_HALF_SIZE - entity.radius - 1.5;
+        entity.x = THREE.MathUtils.clamp(entity.x, -limit, limit);
+        entity.z = THREE.MathUtils.clamp(entity.z, -limit, limit);
+
+        for (const ob of this.obstacles) {
+          const dx = entity.x - ob.x;
+          const dz = entity.z - ob.z;
+          const dist = Math.hypot(dx, dz);
+          const minDist = entity.radius + ob.radius;
+          if (dist < minDist && dist > 0.0001) {
+            const overlap = minDist - dist;
+            entity.x += (dx / dist) * overlap;
+            entity.z += (dz / dist) * overlap;
+          }
+        }
+      }
+
+      updateEnemies(dt) {
+        this.stepFactionAI(this.enemies, this.allies, true, dt);
+        this.stepFactionAI(this.allies, this.enemies, false, dt);
+      }
+
+      stepFactionAI(units, opponents, canTargetPlayer, dt) {
+        const p = this.player;
+
+        for (let i = 0; i < units.length; i++) {
+          const en = units[i];
+
+          let targetX = null;
+          let targetZ = null;
+          let distToTarget = Infinity;
+
+          if (canTargetPlayer && this.gameState === 'playing') {
+            const dP = Math.hypot(p.x - en.x, p.z - en.z);
+            if (dP < distToTarget) {
+              distToTarget = dP;
+              targetX = p.x;
+              targetZ = p.z;
+            }
+          }
+
+          for (const opp of opponents) {
+            const dO = Math.hypot(opp.x - en.x, opp.z - en.z);
+            if (dO < distToTarget) {
+              distToTarget = dO;
+              targetX = opp.x;
+              targetZ = opp.z;
+            }
+          }
+
+          const hasTarget = targetX !== null && targetZ !== null;
+          const toTargetX = hasTarget ? targetX - en.x : Math.sin(en.bodyYaw) * 20;
+          const toTargetZ = hasTarget ? targetZ - en.z : Math.cos(en.bodyYaw) * 20;
+          const angleToTarget = Math.atan2(toTargetX, toTargetZ);
+
+          en.turretYaw = this.lerpAngle(en.turretYaw, angleToTarget, Math.min(1, dt * (en.isArtillery ? 3.2 : 5.5)));
+
+          en.strafeTimer -= dt;
+          if (en.strafeTimer <= 0) {
+            en.strafeTimer = 1.6 + Math.random() * 2.2;
+            en.strafeDir *= -1;
+          }
+
+          let moveDirX = 0;
+          let moveDirZ = 0;
+
+          if (!hasTarget) {
+            moveDirX = Math.sin(en.bodyYaw);
+            moveDirZ = Math.cos(en.bodyYaw);
+          } else if (en.isArtillery) {
+            if (distToTarget < 30) {
+              moveDirX = -Math.cos(angleToTarget);
+              moveDirZ = -Math.sin(angleToTarget);
+            } else if (distToTarget > 80) {
+              moveDirX = Math.sin(angleToTarget);
+              moveDirZ = Math.cos(angleToTarget);
+            } else {
+              moveDirX = Math.cos(angleToTarget) * en.strafeDir * 0.45;
+              moveDirZ = -Math.sin(angleToTarget) * en.strafeDir * 0.45;
+            }
+          } else {
+            if (distToTarget > 20) {
+              const fwdX = Math.sin(angleToTarget);
+              const fwdZ = Math.cos(angleToTarget);
+              const sideX = Math.cos(angleToTarget) * en.strafeDir * 0.42;
+              const sideZ = -Math.sin(angleToTarget) * en.strafeDir * 0.42;
+              moveDirX = fwdX + sideX;
+              moveDirZ = fwdZ + sideZ;
+            } else {
+              moveDirX = Math.cos(angleToTarget) * en.strafeDir;
+              moveDirZ = -Math.sin(angleToTarget) * en.strafeDir;
+            }
+          }
+
+          const moveLen = Math.hypot(moveDirX, moveDirZ);
+          if (moveLen > 0.01) {
+            moveDirX /= moveLen;
+            moveDirZ /= moveLen;
+            en.x += moveDirX * en.speed * dt;
+            en.z += moveDirZ * en.speed * dt;
+
+            const desiredBodyYaw = Math.atan2(moveDirX, moveDirZ);
+            en.bodyYaw = this.lerpAngle(en.bodyYaw, desiredBodyYaw, Math.min(1, dt * en.turnSpeed * 2));
+          }
+
+          for (let j = i + 1; j < units.length; j++) {
+            const other = units[j];
+            const dx = en.x - other.x;
+            const dz = en.z - other.z;
+            const d = Math.hypot(dx, dz);
+            const minD = en.radius + other.radius + 1.2;
+            if (d < minD && d > 0.001) {
+              const push = (minD - d) * 0.5;
+              const nx = dx / d;
+              const nz = dz / d;
+              en.x += nx * push;
+              en.z += nz * push;
+              other.x -= nx * push;
+              other.z -= nz * push;
+            }
+          }
+
+          this.resolveCollisions(en);
+
+          const gy = getTerrainHeight(en.x, en.z);
+          en.visual.root.position.set(en.x, gy, en.z);
+          en.visual.root.rotation.y = en.bodyYaw;
+          en.visual.turretGroup.rotation.y = en.turretYaw - en.bodyYaw;
+
+          if (en.visual.hpBarGroup) {
+            en.visual.hpBarGroup.lookAt(this.camera.position);
+            const ratio = Math.max(0.01, en.hp / en.maxHp);
+            en.visual.hpBarFill.scale.x = ratio;
+          }
+
+          if (en.hitFlash > 0) {
+            en.hitFlash = Math.max(0, en.hitFlash - dt);
+          }
+
+          en.fireTimer -= dt;
+          const angleDiff = Math.abs(this.normalizeAngle(en.turretYaw - angleToTarget));
+          if (hasTarget && en.fireTimer <= 0 && distToTarget < 125 && angleDiff < 0.38) {
+            en.fireTimer = en.fireCooldown * (0.85 + Math.random() * 0.45);
+
+            const muzzlePos = new THREE.Vector3();
+            en.visual.muzzlePoint.getWorldPosition(muzzlePos);
+
+            if (en.isArtillery) {
+              const leadX = targetX + (Math.random() - 0.5) * 7.5;
+              const leadZ = targetZ + (Math.random() - 0.5) * 7.5;
+              this.fireProjectile({
+                origin: muzzlePos,
+                direction: new THREE.Vector3(Math.sin(en.turretYaw), 0, Math.cos(en.turretYaw)),
+                isPlayer: false,
+                faction: en.faction,
+                isArtillery: true,
+                targetPos: new THREE.Vector3(leadX, getTerrainHeight(leadX, leadZ), leadZ)
+              });
+            } else {
+              const dir = new THREE.Vector3(Math.sin(en.turretYaw), 0, Math.cos(en.turretYaw)).normalize();
+              this.fireProjectile({
+                origin: muzzlePos,
+                direction: dir,
+                isPlayer: false,
+                faction: en.faction,
+                isArtillery: false
+              });
+            }
+          }
+        }
+      }
+
+      updateProjectilesAndParticles(dt) {
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+          const proj = this.projectiles[i];
+          proj.life -= dt;
+          proj.vy -= proj.gravity * dt;
+
+          proj.mesh.position.x += proj.vx * dt;
+          proj.mesh.position.y += proj.vy * dt;
+          proj.mesh.position.z += proj.vz * dt;
+
+          const px = proj.mesh.position.x;
+          const py = proj.mesh.position.y;
+          const pz = proj.mesh.position.z;
+          const terrainY = getTerrainHeight(px, pz);
+
+          let hitObstacle = false;
+          for (const ob of this.obstacles) {
+            if (Math.hypot(px - ob.x, pz - ob.z) <= ob.radius + 0.3 && py <= terrainY + 3.5) {
+              hitObstacle = true;
+              break;
+            }
+          }
+
+          let hitUnit = false;
+          if (proj.faction === 'ally') {
+            for (const en of this.enemies) {
+              const enY = getTerrainHeight(en.x, en.z);
+              if (py <= enY + 2.8 && Math.hypot(px - en.x, pz - en.z) <= en.radius + 0.45) {
+                hitUnit = true;
+                break;
+              }
+            }
+          } else {
+            for (const al of this.allies) {
+              const alY = getTerrainHeight(al.x, al.z);
+              if (py <= alY + 2.8 && Math.hypot(px - al.x, pz - al.z) <= al.radius + 0.45) {
+                hitUnit = true;
+                break;
+              }
+            }
+            const pY = getTerrainHeight(this.player.x, this.player.z);
+            if (py <= pY + 2.6 && Math.hypot(px - this.player.x, pz - this.player.z) <= this.player.radius + 0.35) {
+              hitUnit = true;
+            }
+          }
+
+          if (hitUnit || hitObstacle || py <= terrainY + 0.1 || proj.life <= 0 || Math.abs(px) > ARENA_HALF_SIZE || Math.abs(pz) > ARENA_HALF_SIZE) {
+            this.detonateProjectile(proj, px, Math.max(terrainY + 0.2, py), pz);
+            this.projectiles.splice(i, 1);
+          }
+        }
+
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const pt = this.particles[i];
+          pt.life -= dt;
+          if (pt.life <= 0) {
+            this.scene.remove(pt.mesh);
+            this.particles.splice(i, 1);
+            continue;
+          }
+
+          pt.vy -= 14 * dt;
+          pt.mesh.position.x += pt.vx * dt;
+          pt.mesh.position.y += pt.vy * dt;
+          pt.mesh.position.z += pt.vz * dt;
+          pt.mesh.rotation.x += dt * 5;
+          pt.mesh.rotation.y += dt * 4;
+
+          const ratio = Math.max(0.01, pt.life / pt.maxLife);
+          if (pt.mesh.material) {
+            pt.mesh.material.opacity = ratio;
+          }
+          if (pt.scaleSpeed > 0) {
+            const s = 1 + pt.scaleSpeed * dt;
+            pt.mesh.scale.multiplyScalar(s);
+          } else {
+            pt.mesh.scale.setScalar(Math.max(0.15, ratio));
+          }
+        }
+      }
+
+      updateCamera(dt) {
+        const p = this.player;
+        const groundY = getTerrainHeight(p.x, p.z);
+
+        if (this.isFirstPerson) {
+          const eyeX = p.x + Math.sin(this.fpsYaw) * 0.6;
+          const eyeZ = p.z + Math.cos(this.fpsYaw) * 0.6;
+          const eyeY = groundY + 2.35;
+
+          this.camera.position.set(eyeX, eyeY, eyeZ);
+
+          if (this.screenShake > 0) {
+            this.camera.position.x += (Math.random() - 0.5) * this.screenShake * 0.9;
+            this.camera.position.y += (Math.random() - 0.5) * this.screenShake * 0.7;
+            this.screenShake = Math.max(0, this.screenShake - dt * 2.1);
+          }
+
+          if (this.dirLight) {
+            this.dirLight.position.set(p.x + 85, 130, p.z + 75);
+            this.dirLight.target.position.set(p.x, 0, p.z);
+          }
+
+          const lookDist = 50;
+          const target = new THREE.Vector3(
+            eyeX + Math.sin(this.fpsYaw) * Math.cos(this.fpsPitch) * lookDist,
+            eyeY + Math.sin(this.fpsPitch) * lookDist,
+            eyeZ + Math.cos(this.fpsYaw) * Math.cos(this.fpsPitch) * lookDist
+          );
+          this.camera.lookAt(target);
+          return;
+        }
+
+        const targetCamX = p.x + Math.sin(p.turretYaw) * -9;
+        const targetCamZ = p.z + 28;
+        const targetCamY = groundY + 27;
+
+        this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, targetCamX, Math.min(1, dt * 6.5));
+        this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, targetCamY, Math.min(1, dt * 6.5));
+        this.camera.position.z = THREE.MathUtils.lerp(this.camera.position.z, targetCamZ, Math.min(1, dt * 6.5));
+
+        if (this.dirLight) {
+          this.dirLight.position.set(p.x + 85, 130, p.z + 75);
+          this.dirLight.target.position.set(p.x, 0, p.z);
+        }
+
+        if (this.screenShake > 0) {
+          this.camera.position.x += (Math.random() - 0.5) * this.screenShake * 1.8;
+          this.camera.position.y += (Math.random() - 0.5) * this.screenShake * 1.4;
+          this.screenShake = Math.max(0, this.screenShake - dt * 1.9);
+        }
+
+        const lookTarget = new THREE.Vector3(
+          p.x + (this.aimWorldPoint.x - p.x) * 0.25,
+          groundY + 1.2,
+          p.z + (this.aimWorldPoint.z - p.z) * 0.25 - 4
+        );
+        this.camera.lookAt(lookTarget);
+      }
+
+      updateRadar() {
+        if (!this.radarCtx || !this.radarCanvas) return;
+        const ctx = this.radarCtx;
+        const w = this.radarCanvas.width;
+        const h = this.radarCanvas.height;
+        const cx = w / 2;
+        const cy = h / 2;
+        const radarRange = 260;
+
+        ctx.clearRect(0, 0, w, h);
+
+        ctx.strokeStyle = 'rgba(52, 211, 153, 0.16)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(cx, cy, w * 0.25, 0, Math.PI * 2);
+        ctx.arc(cx, cy, w * 0.45, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.45)';
+        for (const obs of this.obstacles) {
+          const rx = cx + ((obs.x - this.player.x) / radarRange) * (w * 0.45);
+          const ry = cy + ((obs.z - this.player.z) / radarRange) * (h * 0.45);
+          if (rx >= 4 && rx <= w - 4 && ry >= 4 && ry <= h - 4) {
+            ctx.fillRect(rx - 2, ry - 2, 4, 4);
+          }
+        }
+
+        for (const al of this.allies) {
+          const dx = al.x - this.player.x;
+          const dz = al.z - this.player.z;
+          const dist = Math.hypot(dx, dz);
+          if (dist > radarRange) continue;
+          const ax = cx + (dx / radarRange) * (w * 0.45);
+          const ay = cy + (dz / radarRange) * (h * 0.45);
+          ctx.fillStyle = '#38bdf8';
+          ctx.beginPath();
+          ctx.arc(ax, ay, 2.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        for (const en of this.enemies) {
+          const dx = en.x - this.player.x;
+          const dz = en.z - this.player.z;
+          const dist = Math.hypot(dx, dz);
+          const scale = dist > radarRange ? (radarRange / dist) * 0.44 : (dist / radarRange) * 0.45;
+          const ex = cx + (dx / (dist || 1)) * scale * w;
+          const ey = cy + (dz / (dist || 1)) * scale * h;
+
+          ctx.fillStyle = en.isArtillery ? '#fb923c' : '#ef4444';
+          ctx.beginPath();
+          ctx.arc(ex, ey, en.isArtillery ? 3.5 : 2.8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(-(this.isFirstPerson ? this.fpsYaw : this.player.bodyYaw));
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.moveTo(0, -6);
+        ctx.lineTo(4.5, 5);
+        ctx.lineTo(0, 2.5);
+        ctx.lineTo(-4.5, 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        if (this.ui.radarCoords) {
+          this.ui.radarCoords.textContent = `${Math.round(this.player.x)}, ${Math.round(this.player.z)}`;
+        }
+      }
+
+      // =========================================================================
+      // 10. HUD 更新、會員／商店／活動／VIP／付款／好友邏輯
+      // =========================================================================
+      updateHUD() {
+        const hpRatio = Math.max(0, Math.min(1, this.player.hp / this.player.maxHp));
+        if (this.ui.hudHpText) this.ui.hudHpText.textContent = `${Math.ceil(this.player.hp)} / ${this.player.maxHp}`;
+        if (this.ui.hudHpBar) {
+          this.ui.hudHpBar.style.width = `${hpRatio * 100}%`;
+          if (hpRatio > 0.5) {
+            this.ui.hudHpBar.className = 'h-full bg-gradient-to-r from-emerald-500 to-lime-400 transition-all duration-150';
+          } else if (hpRatio > 0.25) {
+            this.ui.hudHpBar.className = 'h-full bg-gradient-to-r from-amber-500 to-yellow-400 transition-all duration-150';
+          } else {
+            this.ui.hudHpBar.className = 'h-full bg-gradient-to-r from-rose-600 to-red-400 transition-all duration-150';
+          }
+        }
+        if (this.ui.hudWave) this.ui.hudWave.textContent = String(this.wave);
+        if (this.ui.hudScore) this.ui.hudScore.textContent = String(this.score);
+        if (this.ui.hudEnemies) this.ui.hudEnemies.textContent = String(this.enemies.length);
+      }
+
+      updateReloadHUD() {
+        const p = this.player;
+        if (p.reloadTimer <= 0) {
+          if (this.ui.hudReloadText) this.ui.hudReloadText.textContent = '就緒';
+          if (this.ui.hudReloadBar) this.ui.hudReloadBar.style.width = '100%';
+        } else {
+          const progress = Math.max(0, Math.min(1, 1 - p.reloadTimer / p.reloadTime));
+          if (this.ui.hudReloadText) this.ui.hudReloadText.textContent = `${p.reloadTimer.toFixed(1)}s`;
+          if (this.ui.hudReloadBar) this.ui.hudReloadBar.style.width = `${progress * 100}%`;
+        }
+      }
+
+      renderLobbyUI() {
+        if (!this.ui.lobbyCommanderName) return;
+
+        this.ui.lobbyCommanderName.textContent = this.save.account.nickname;
+        this.ui.lobbyUid.textContent = this.save.account.uid;
+        this.ui.lobbyLoginStatus.textContent = this.save.account.loggedIn ? '● 會員已登入' : '● 訪客模式';
+        this.ui.lobbyLoginStatus.className = this.save.account.loggedIn
+          ? 'text-[11px] text-emerald-400 font-semibold'
+          : 'text-[11px] text-amber-300 font-semibold';
+
+        const vipMult = this.getVipRewardMultiplier();
+        if (this.save.vip.tier === 'lifetime') {
+          this.ui.lobbyVipBadge.textContent = 'SVIP 傳奇元帥';
+          this.ui.lobbyVipBadge.className = 'px-2 py-0.5 rounded-full text-[11px] font-black bg-amber-400 text-slate-950';
+        } else if (vipMult > 1) {
+          this.ui.lobbyVipBadge.textContent = 'VIP 菁英會員';
+          this.ui.lobbyVipBadge.className = 'px-2 py-0.5 rounded-full text-[11px] font-black bg-amber-500/25 text-amber-300 border border-amber-400/50';
+        } else {
+          this.ui.lobbyVipBadge.textContent = '一般會員';
+          this.ui.lobbyVipBadge.className = 'px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-800 text-slate-300 border border-slate-600';
+        }
+
+        this.ui.lobbySeasonLv.textContent = String(this.save.season.level);
+        this.ui.lobbyGold.textContent = this.save.economy.gold.toLocaleString();
+        this.ui.lobbyGems.textContent = this.save.economy.gems.toLocaleString();
+        this.ui.lobbyFriendsCount.textContent = `(${this.save.friends.length})`;
+        this.ui.startBestScore.textContent = this.save.bestScore.toLocaleString();
+
+        const stats = this.getComputedPlayerStats();
+        this.ui.activeSkinTag.textContent = `${stats.skin.name} · ${stats.skin.tier}`;
+        this.ui.statMaxHp.textContent = `${stats.maxHp} HP`;
+        this.ui.statDamage.textContent = `${stats.damage} DMG`;
+        this.ui.statReload.textContent = `${stats.reloadTime.toFixed(2)} 秒`;
+        this.ui.statRewardMult.textContent = `${stats.rewardMult.toFixed(2)}x`;
+        this.ui.startBtnLabel.textContent = `出擊 · ${stats.mode.name}`;
+
+        this.renderModeCards();
+        this.renderSkinSelector();
+      }
+
+      renderModeCards() {
+        if (!this.ui.modeCardsGrid) return;
+        this.ui.modeCardsGrid.innerHTML = '';
+
+        Object.values(GAME_MODES).forEach((mode) => {
+          const selected = this.save.selectedMode === mode.id;
+          const card = document.createElement('button');
+          card.type = 'button';
+          card.className = `text-left rounded-2xl p-3.5 border transition-all flex flex-col justify-between gap-2 ${
+            selected
+              ? 'bg-amber-500/15 border-amber-400 shadow-[0_0_24px_rgba(245,158,11,0.22)]'
+              : 'bg-slate-900/75 border-slate-800 hover:border-slate-600'
+          }`;
+
+          card.innerHTML = `
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-black text-sm text-white">${mode.name}</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                selected ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-amber-300'
+              }">${mode.badge}</span>
+            </div>
+            <p class="text-[11px] leading-relaxed text-slate-300">${mode.desc}</p>
+          `;
+
+          card.addEventListener('click', () => {
+            this.save.selectedMode = mode.id;
+            this.persistSave();
+            this.renderLobbyUI();
+            this.showToast(`已切換至「${mode.name}」`, 'amber');
+          });
+
+          this.ui.modeCardsGrid.appendChild(card);
+        });
+      }
+
+      renderSkinSelector() {
+        if (!this.ui.skinSelectorList) return;
+        this.ui.skinSelectorList.innerHTML = '';
+
+        Object.values(SKINS_CONFIG).forEach((skin) => {
+          const unlocked = this.save.skins.unlocked.includes(skin.id);
+          const equipped = this.save.skins.equipped === skin.id;
+          const hexColor = `#${skin.bodyColor.toString(16).padStart(6, '0')}`;
+
+          const row = document.createElement('div');
+          row.className = `rounded-2xl p-3 border flex items-center justify-between gap-2 ${
+            equipped
+              ? 'bg-amber-500/15 border-amber-400'
+              : 'bg-slate-900/75 border-slate-800'
+          }`;
+
+          let actionHtml = '';
+          if (equipped) {
+            actionHtml = `<span class="px-3 py-1.5 rounded-xl text-xs font-black bg-amber-400 text-slate-950">使用中</span>`;
+          } else if (unlocked) {
+            actionHtml = `<button data-equip-skin="${skin.id}" type="button" class="secondary-btn px-3 py-1.5 rounded-xl text-xs font-bold text-white">裝備</button>`;
+          } else {
+            const icon = skin.costType === 'gems' ? '💎' : '🪙';
+            actionHtml = `<button data-unlock-skin="${skin.id}" type="button" class="primary-btn px-3 py-1.5 rounded-xl text-xs font-black text-white">${icon} ${skin.costValue}</button>`;
+          }
+
+          row.innerHTML = `
+            <div class="flex items-center gap-3">
+              <span class="w-5 h-5 rounded-lg border border-white/30 shrink-0" style="background:${hexColor}"></span>
+              <div>
+                <div class="text-xs sm:text-sm font-black text-white">${skin.name} <span class="text-[10px] font-semibold text-amber-300">(${skin.tier})</span></div>
+                <div class="text-[11px] text-slate-400">+${skin.hpBonus} 裝甲 · +${skin.dmgBonus} 傷害 · +${Math.round(skin.rewardBonus * 100)}% 收益</div>
+              </div>
+            </div>
+            ${actionHtml}
+          `;
+
+          const equipBtn = row.querySelector(`[data-equip-skin="${skin.id}"]`);
+          if (equipBtn) {
+            equipBtn.addEventListener('click', () => {
+              this.save.skins.equipped = skin.id;
+              this.persistSave();
+              this.applyPlayerStatsAndSkin();
+              this.renderLobbyUI();
+              this.showToast(`已裝備「${skin.name}」塗裝`, 'emerald');
+            });
+          }
+
+          const unlockBtn = row.querySelector(`[data-unlock-skin="${skin.id}"]`);
+          if (unlockBtn) {
+            unlockBtn.addEventListener('click', () => {
+              if (skin.costType === 'gems') {
+                if (this.save.economy.gems < skin.costValue) {
+                  this.showToast('💎 鑽石不足，可前往軍備商店儲值！', 'rose');
+                  return;
+                }
+                this.save.economy.gems -= skin.costValue;
+              } else {
+                if (this.save.economy.gold < skin.costValue) {
+                  this.showToast('🪙 軍費不足，快出戰或完成任務賺取！', 'rose');
+                  return;
+                }
+                this.save.economy.gold -= skin.costValue;
+              }
+              this.save.skins.unlocked.push(skin.id);
+              this.save.skins.equipped = skin.id;
+              this.persistSave();
+              this.applyPlayerStatsAndSkin();
+              this.renderLobbyUI();
+              this.showToast(`🎉 成功解鎖並裝備「${skin.name}」！`, 'amber');
+            });
+          }
+
+          this.ui.skinSelectorList.appendChild(row);
+        });
+      }
+
+      openModal(modalEl) {
+        if (!modalEl) return;
+        modalEl.classList.remove('hidden');
+        if (modalEl === this.ui.shopModal) {
+          this.renderShopModal();
+        } else if (modalEl === this.ui.eventsModal) {
+          this.renderEventsModal();
+        } else if (modalEl === this.ui.friendsModal) {
+          this.renderFriendsModal();
+        } else if (modalEl === this.ui.accountModal) {
+          this.ui.accountCurrentInfo.textContent = `${this.save.account.nickname} (${this.save.account.loggedIn ? '正式會員' : '訪客帳號'})`;
+          this.ui.accountUidDisplay.textContent = `UID: ${this.save.account.uid}`;
+          this.ui.loginNicknameInput.value = this.save.account.nickname;
+          this.ui.loginEmailInput.value = this.save.account.email;
+        }
+      }
+
+      closeModal(modalEl) {
+        if (!modalEl) return;
+        modalEl.classList.add('hidden');
+      }
+
+      renderShopModal() {
+        this.ui.shopGold.textContent = this.save.economy.gold.toLocaleString();
+        this.ui.shopGems.textContent = this.save.economy.gems.toLocaleString();
+        this.ui.shopItemsContainer.innerHTML = '';
+
+        if (this.activeShopTab === 'upgrades') {
+          const upgrades = [
+            {
+              key: 'hullLv',
+              title: '複合反應裝甲',
+              desc: '每級提升 +20 最大裝甲值',
+              lv: this.save.upgrades.hullLv,
+              costGold: this.save.upgrades.hullLv * 350
+            },
+            {
+              key: 'cannonLv',
+              title: '高膛壓主砲炮管',
+              desc: '每級提升 +7 主砲單發傷害',
+              lv: this.save.upgrades.cannonLv,
+              costGold: this.save.upgrades.cannonLv * 400
+            },
+            {
+              key: 'reloadLv',
+              title: '自動裝填輸彈機',
+              desc: '每級縮短主砲裝填冷卻時間',
+              lv: this.save.upgrades.reloadLv,
+              costGold: this.save.upgrades.reloadLv * 380
+            }
+          ];
+
+          upgrades.forEach((up) => {
+            const card = document.createElement('div');
+            card.className = 'rounded-2xl bg-slate-900/85 border border-slate-800 p-4 flex flex-col justify-between gap-3';
+            card.innerHTML = `
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="font-black text-white text-sm sm:text-base">${up.title}</span>
+                  <span class="text-xs font-bold text-amber-300">Lv.${up.lv}</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-1">${up.desc}</p>
+              </div>
+              <button type="button" class="primary-btn w-full py-2.5 rounded-xl text-xs sm:text-sm font-black text-white">
+                🪙 ${up.costGold} · 升級
+              </button>
+            `;
+            card.querySelector('button').addEventListener('click', () => {
+              if (this.save.economy.gold < up.costGold) {
+                this.showToast('🪙 軍費不足！', 'rose');
+                return;
+              }
+              this.save.economy.gold -= up.costGold;
+              this.save.upgrades[up.key] += 1;
+              this.persistSave();
+              this.renderShopModal();
+              this.renderLobbyUI();
+              this.showToast(`✅ ${up.title} 升級至 Lv.${this.save.upgrades[up.key]}！`, 'emerald');
+            });
+            this.ui.shopItemsContainer.appendChild(card);
+          });
+
+          const boosterCard = document.createElement('div');
+          boosterCard.className = 'rounded-2xl bg-gradient-to-br from-cyan-500/15 to-blue-600/15 border border-cyan-400/40 p-4 flex flex-col justify-between gap-3';
+          boosterCard.innerHTML = `
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="font-black text-cyan-200 text-sm sm:text-base">⚡ 戰地超頻推進卡</span>
+                <span class="text-xs font-bold text-cyan-300">1.5x 收益 + 移速</span>
+              </div>
+              <p class="text-xs text-slate-300 mt-1">本局出擊獲得 1.5 倍戰果收益與 +25% 機動速度！</p>
+            </div>
+            <button type="button" class="secondary-btn border-cyan-400/50 w-full py-2.5 rounded-xl text-xs sm:text-sm font-black text-cyan-200">
+              💎 80 · 購買並備戰
+            </button>
+          `;
+          boosterCard.querySelector('button').addEventListener('click', () => {
+            if (this.save.economy.gems < 80) {
+              this.showToast('💎 鑽石不足！', 'rose');
+              return;
+            }
+            this.save.economy.gems -= 80;
+            this.player.boosterTimer = 9999;
+            this.persistSave();
+            this.renderShopModal();
+            this.renderLobbyUI();
+            this.showToast('⚡ 已啟用「戰地超頻推進卡」1.5x 收益加成！', 'sky');
+          });
+          this.ui.shopItemsContainer.appendChild(boosterCard);
+        } else {
+          GEM_PACKS.forEach((pack) => {
+            const isFirstDouble = pack.id === 'pack_starter' && !this.save.economy.firstTopupUsed;
+            const finalGems = isFirstDouble ? pack.gems * 2 : pack.gems;
+            const card = document.createElement('div');
+            card.className = 'rounded-2xl bg-slate-900/85 border border-cyan-500/35 p-4 flex flex-col justify-between gap-3';
+            card.innerHTML = `
+              <div>
+                <div class="flex items-center justify-between gap-2">
+                  <span class="font-black text-white text-sm sm:text-base">${pack.name}</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-cyan-500/20 text-cyan-300">${isFirstDouble ? '首儲雙倍!' : pack.badge}</span>
+                </div>
+                <p class="text-xs text-slate-300 mt-1.5">${pack.desc}</p>
+                <div class="text-xs font-bold text-cyan-300 mt-2">獲得 💎 ${finalGems} 鑽石 + 🪙 ${pack.gold} 軍費</div>
+              </div>
+              <button type="button" class="primary-btn w-full py-2.5 rounded-xl text-xs sm:text-sm font-black text-white">
+                ${pack.priceText} · 立即儲值
+              </button>
+            `;
+            card.querySelector('button').addEventListener('click', () => {
+              this.openCheckout({
+                type: 'gem_pack',
+                packId: pack.id,
+                title: pack.name,
+                rewardText: `獲得 💎 ${finalGems} 鑽石 + 🪙 ${pack.gold} 軍費`,
+                priceText: pack.priceText,
+                gems: finalGems,
+                gold: pack.gold
+              });
+            });
+            this.ui.shopItemsContainer.appendChild(card);
+          });
+        }
+      }
+
+      renderEventsModal() {
+        this.ui.eventsContentContainer.innerHTML = '';
+
+        if (this.activeEventTab === 'missions') {
+          this.save.missions.forEach((m) => {
+            const currentVal = this.save.stats[m.statKey] || 0;
+            const progress = Math.min(m.target, currentVal);
+            const canClaim = progress >= m.target && !m.claimed;
+
+            const row = document.createElement('div');
+            row.className = 'rounded-2xl bg-slate-900/85 border border-slate-800 p-4 flex flex-wrap items-center justify-between gap-3';
+            row.innerHTML = `
+              <div class="space-y-1">
+                <div class="font-black text-sm text-white">${m.title}</div>
+                <div class="text-xs text-emerald-300 font-bold">獎勵：🪙 ${m.rewardGold} + 💎 ${m.rewardGems}</div>
+                <div class="text-[11px] text-slate-400">進度：${progress} / ${m.target}</div>
+              </div>
+              <button type="button" ${canClaim ? '' : 'disabled'} class="px-4 py-2 rounded-xl text-xs font-black ${
+                m.claimed
+                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                  : canClaim
+                  ? 'primary-btn text-white'
+                  : 'bg-slate-800 text-slate-400 cursor-not-allowed'
+              }">
+                ${m.claimed ? '已領取' : canClaim ? '🎁 領取獎勵' : '進行中'}
+              </button>
+            `;
+
+            const btn = row.querySelector('button');
+            if (canClaim) {
+              btn.addEventListener('click', () => {
+                m.claimed = true;
+                this.save.economy.gold += m.rewardGold;
+                this.save.economy.gems += m.rewardGems;
+                this.persistSave();
+                this.renderEventsModal();
+                this.renderLobbyUI();
+                this.showToast(`🎁 領取任務獎勵 +${m.rewardGold}🪙 / +${m.rewardGems}💎`, 'emerald');
+              });
+            }
+
+            this.ui.eventsContentContainer.appendChild(row);
+          });
+        } else {
+          const xpNeeded = 200;
+          const pct = Math.min(100, Math.round((this.save.season.xp / xpNeeded) * 100));
+          const headerCard = document.createElement('div');
+          headerCard.className = 'rounded-2xl bg-gradient-to-r from-amber-500/20 to-orange-500/15 border border-amber-400/40 p-4';
+          headerCard.innerHTML = `
+            <div class="flex items-center justify-between text-sm font-black text-white mb-1.5">
+              <span>🏆 S1 鋼鐵風暴賽季 · 目前 Lv.${this.save.season.level}</span>
+              <span class="text-amber-300">${this.save.season.xp} / ${xpNeeded} EXP</span>
+            </div>
+            <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden">
+              <div class="h-full bg-gradient-to-r from-amber-400 to-orange-500" style="width:${pct}%"></div>
+            </div>
+          `;
+          this.ui.eventsContentContainer.appendChild(headerCard);
+
+          for (let lv = 1; lv <= 5; lv++) {
+            const rewardGold = lv * 250;
+            const rewardGems = lv * 25;
+            const unlocked = this.save.season.level >= lv;
+            const claimed = this.save.season.claimedLevels.includes(lv);
+
+            const tierRow = document.createElement('div');
+            tierRow.className = 'rounded-2xl bg-slate-900/85 border border-slate-800 p-3.5 flex items-center justify-between gap-2';
+            tierRow.innerHTML = `
+              <div>
+                <div class="text-xs sm:text-sm font-black text-white">賽季等級 ${lv}</div>
+                <div class="text-xs text-amber-300">🪙 ${rewardGold} 軍費 + 💎 ${rewardGems} 鑽石</div>
+              </div>
+              <button type="button" ${unlocked && !claimed ? '' : 'disabled'} class="px-3.5 py-2 rounded-xl text-xs font-black ${
+                claimed
+                  ? 'bg-slate-800 text-slate-500'
+                  : unlocked
+                  ? 'primary-btn text-white'
+                  : 'bg-slate-800 text-slate-500'
+              }">
+                ${claimed ? '已領取' : unlocked ? '領取' : `Lv.${lv} 解鎖`}
+              </button>
+            `;
+
+            if (unlocked && !claimed) {
+              tierRow.querySelector('button').addEventListener('click', () => {
+                this.save.season.claimedLevels.push(lv);
+                this.save.economy.gold += rewardGold;
+                this.save.economy.gems += rewardGems;
+                this.persistSave();
+                this.renderEventsModal();
+                this.renderLobbyUI();
+                this.showToast(`🏆 領取賽季 Lv.${lv} 獎勵 +${rewardGold}🪙 / +${rewardGems}💎`, 'amber');
+              });
+            }
+
+            this.ui.eventsContentContainer.appendChild(tierRow);
+          }
+        }
+      }
+
+      recordMissionProgress(statKey, delta) {
+        this.save.stats[statKey] = (this.save.stats[statKey] || 0) + delta;
+      }
+
+      grantSeasonXp(amount) {
+        this.save.season.xp += amount;
+        while (this.save.season.xp >= 200) {
+          this.save.season.xp -= 200;
+          this.save.season.level += 1;
+          this.showToast(`🏆 賽季升級！達到 S1 Lv.${this.save.season.level}`, 'amber');
+        }
+      }
+
+      openCheckout(payload) {
+        this.pendingCheckout = payload;
+        this.ui.checkoutItemName.textContent = payload.title;
+        this.ui.checkoutItemReward.textContent = payload.rewardText;
+        this.ui.checkoutItemprice.textContent = payload.priceText;
+        this.openModal(this.ui.checkoutModal);
+      }
+
+      completePendingCheckout() {
+        const p = this.pendingCheckout;
+        if (!p) return;
+
+        if (p.type === 'gem_pack') {
+          this.save.economy.gems += p.gems || 0;
+          this.save.economy.gold += p.gold || 0;
+          if (p.packId === 'pack_starter') {
+            this.save.economy.firstTopupUsed = true;
+          }
+          this.showToast(`💳 付款成功（${this.selectedPayMethod}）：${p.rewardText}`, 'emerald');
+        } else if (p.type === 'vip_monthly') {
+          this.save.vip.tier = 'monthly';
+          this.save.vip.expiresAt = Date.now() + 30 * 24 * 3600 * 1000;
+          this.save.economy.gems += 300;
+          if (!this.save.skins.unlocked.includes('arctic')) this.save.skins.unlocked.push('arctic');
+          this.grantSeasonXp(500);
+          this.showToast('👑 已開通 VIP 菁英指揮官（30天）+300💎 與極地冰鋒塗裝！', 'amber');
+        } else if (p.type === 'vip_lifetime') {
+          this.save.vip.tier = 'lifetime';
+          this.save.economy.gems += 900;
+          if (!this.save.skins.unlocked.includes('golden')) this.save.skins.unlocked.push('golden');
+          if (!this.save.skins.unlocked.includes('arctic')) this.save.skins.unlocked.push('arctic');
+          this.grantSeasonXp(1500);
+          this.showToast('👑 已升級 SVIP 傳奇元帥（永久）+900💎 與黃金雷霆塗裝！', 'amber');
+        }
+
+        this.pendingCheckout = null;
+        this.persistSave();
+        this.closeModal(this.ui.checkoutModal);
+        this.closeModal(this.ui.vipModal);
+        this.renderLobbyUI();
+        if (!this.ui.shopModal.classList.contains('hidden')) {
+          this.renderShopModal();
+        }
+      }
+
+      renderFriendsModal() {
+        this.ui.friendsListContainer.innerHTML = '';
+
+        this.save.friends.forEach((fr, idx) => {
+          const card = document.createElement('div');
+          card.className = 'rounded-2xl bg-slate-900/85 border border-slate-800 p-3.5 flex flex-wrap items-center justify-between gap-2';
+          card.innerHTML = `
+            <div>
+              <div class="font-black text-sm text-white">${fr.name} <span class="font-mono text-[11px] text-slate-400">(${fr.uid})</span></div>
+              <div class="text-xs text-sky-300">${fr.status}</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button data-gift="${idx}" type="button" ${fr.giftClaimedToday ? 'disabled' : ''} class="px-3 py-1.5 rounded-xl text-xs font-bold ${
+                fr.giftClaimedToday
+                  ? 'bg-slate-800 text-slate-500'
+                  : 'secondary-btn text-emerald-300'
+              }">
+                ${fr.giftClaimedToday ? '已贈送' : '🎁 互贈 +100🪙'}
+              </button>
+              <button data-invite="${idx}" type="button" class="primary-btn px-3 py-1.5 rounded-xl text-xs font-black text-white">
+                ⚔️ 邀戰
+              </button>
+            </div>
+          `;
+
+          const giftBtn = card.querySelector(`[data-gift="${idx}"]`);
+          if (!fr.giftClaimedToday && giftBtn) {
+            giftBtn.addEventListener('click', () => {
+              fr.giftClaimedToday = true;
+              this.save.economy.gold += 100;
+              this.persistSave();
+              this.renderFriendsModal();
+              this.renderLobbyUI();
+              this.showToast(`🎁 與好友「${fr.name}」互贈補給，獲得 +100 軍費！`, 'emerald');
+            });
+          }
+
+          const inviteBtn = card.querySelector(`[data-invite="${idx}"]`);
+          if (inviteBtn) {
+            inviteBtn.addEventListener('click', () => {
+              this.showToast(`⚔️ 已向「${fr.name}」送出 50v50 戰場出戰邀請！`, 'sky');
+            });
+          }
+
+          this.ui.friendsListContainer.appendChild(card);
+        });
+      }
+
+      // =========================================================================
+      // 11. 事件綁定與主迴圈
+      // =========================================================================
+      bindEvents() {
+        window.addEventListener('resize', () => {
+          const container = document.getElementById('game-container');
+          const w = container.clientWidth || window.innerWidth;
+          const h = container.clientHeight || window.innerHeight;
+          this.camera.aspect = w / h;
+          this.camera.updateProjectionMatrix();
+          this.renderer.setSize(w, h);
+        });
+
+        window.addEventListener('keydown', (e) => {
+          this.keys[e.code] = true;
+
+          if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+            if (this.gameState === 'playing') {
+              e.preventDefault();
+            }
+          }
+
+          if (e.code === 'KeyV') {
+            if (this.gameState === 'playing') {
+              this.setFirstPersonMode(!this.isFirstPerson, true);
+            }
+            return;
+          }
+
+          if (e.code === 'KeyP' || e.code === 'Escape') {
+            if (this.gameState === 'playing') {
+              this.setGameState('paused');
+            } else if (this.gameState === 'paused') {
+              this.setGameState('playing');
+            }
+          }
+        });
+
+        window.addEventListener('keyup', (e) => {
+          this.keys[e.code] = false;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+          if (this.gameState === 'playing' && this.isFirstPerson) {
+            const sens = 0.0024;
+            const dx = document.pointerLockElement === this.canvas ? e.movementX : (e.clientX - this.mouseScreen.x);
+            const dy = document.pointerLockElement === this.canvas ? e.movementY : (e.clientY - this.mouseScreen.y);
+            this.fpsYaw -= dx * sens;
+            this.fpsPitch = THREE.MathUtils.clamp(this.fpsPitch - dy * sens, -0.45, 0.35);
+          }
+          this.updatePointerPosition(e.clientX, e.clientY);
+        });
+
+        this.canvas.addEventListener('mousedown', (e) => {
+          if (this.gameState === 'playing' && e.button === 0) {
+            if (this.isFirstPerson && document.pointerLockElement !== this.canvas) {
+              this.canvas.requestPointerLock?.();
+            }
+            this.isMouseDown = true;
+            this.updatePointerPosition(e.clientX, e.clientY);
+          }
+        });
+
+        window.addEventListener('mouseup', (e) => {
+          if (e.button === 0) {
+            this.isMouseDown = false;
+          }
+        });
+
+        this.canvas.addEventListener('touchstart', (e) => {
+          if (this.gameState === 'playing' && e.touches.length > 0) {
+            const t = e.touches[0];
+            this.updatePointerPosition(t.clientX, t.clientY);
+          }
+        }, { passive: true });
+
+        this.canvas.addEventListener('touchmove', (e) => {
+          if (this.gameState === 'playing' && e.touches.length > 0) {
+            const t = e.touches[0];
+            this.updatePointerPosition(t.clientX, t.clientY);
+          }
+        }, { passive: true });
+
+        const touchMoveMap = [
+          { id: 'touch-up', code: 'KeyW' },
+          { id: 'touch-down', code: 'KeyS' },
+          { id: 'touch-left', code: 'KeyA' },
+          { id: 'touch-right', code: 'KeyD' }
+        ];
+        touchMoveMap.forEach(({ id, code }) => {
+          const btn = document.getElementById(id);
+          if (!btn) return;
+          const press = (ev) => {
+            ev.preventDefault();
+            this.keys[code] = true;
+          };
+          const release = (ev) => {
+            ev.preventDefault();
+            this.keys[code] = false;
+          };
+          btn.addEventListener('touchstart', press, { passive: false });
+          btn.addEventListener('touchend', release, { passive: false });
+          btn.addEventListener('touchcancel', release, { passive: false });
+          btn.addEventListener('mousedown', press);
+          btn.addEventListener('mouseup', release);
+          btn.addEventListener('mouseleave', release);
+        });
+
+        const touchFire = document.getElementById('touch-fire');
+        if (touchFire) {
+          const startFire = (ev) => {
+            ev.preventDefault();
+            this.isMouseDown = true;
+          };
+          const stopFire = (ev) => {
+            ev.preventDefault();
+            this.isMouseDown = false;
+          };
+          touchFire.addEventListener('touchstart', startFire, { passive: false });
+          touchFire.addEventListener('touchend', stopFire, { passive: false });
+          touchFire.addEventListener('touchcancel', stopFire, { passive: false });
+          touchFire.addEventListener('mousedown', startFire);
+          touchFire.addEventListener('mouseup', stopFire);
+          touchFire.addEventListener('mouseleave', stopFire);
+        }
+
+        this.ui.startBtn.addEventListener('click', () => this.startNewGame());
+        this.ui.restartBtn.addEventListener('click', () => this.startNewGame());
+        this.ui.restartFromPauseBtn.addEventListener('click', () => this.startNewGame());
+
+        this.ui.resumeBtn.addEventListener('click', () => {
+          this.sound.unlock();
+          this.setGameState('playing');
+        });
+
+        this.ui.pauseToggleFpsBtn.addEventListener('click', () => {
+          this.setFirstPersonMode(!this.isFirstPerson, true);
+          this.setGameState('playing');
+        });
+
+        this.ui.pauseToLobbyBtn.addEventListener('click', () => {
+          this.setGameState('start');
+        });
+
+        this.ui.gameoverToLobbyBtn.addEventListener('click', () => {
+          this.setGameState('start');
+        });
+
+        this.ui.lobbyReturnBtn.addEventListener('click', () => {
+          this.setGameState('start');
+        });
+
+        if (this.ui.viewToggleBtn) {
+          this.ui.viewToggleBtn.addEventListener('click', () => {
+            if (this.gameState === 'playing') {
+              this.setFirstPersonMode(!this.isFirstPerson, true);
+            }
+          });
+        }
+
+        this.ui.pauseBtn.addEventListener('click', () => {
+          if (this.gameState === 'playing') {
+            this.setGameState('paused');
+          }
+        });
+
+        this.ui.soundToggleBtn.addEventListener('click', () => {
+          this.sound.unlock();
+          this.sound.setEnabled(!this.sound.enabled);
+          this.ui.soundIcon.textContent = this.sound.enabled ? '🔊' : '🔇';
+          this.ui.soundLabel.textContent = this.sound.enabled ? '音效開' : '音效關';
+        });
+
+        // 系統彈窗開關
+        document.getElementById('open-account-btn').addEventListener('click', () => this.openModal(this.ui.accountModal));
+        document.getElementById('lobby-avatar').addEventListener('click', () => this.openModal(this.ui.accountModal));
+        document.getElementById('open-shop-btn').addEventListener('click', () => {
+          this.activeShopTab = 'upgrades';
+          this.openModal(this.ui.shopModal);
+        });
+        document.getElementById('quick-topup-btn').addEventListener('click', () => {
+          this.activeShopTab = 'gems';
+          this.openModal(this.ui.shopModal);
+        });
+        document.getElementById('open-events-btn').addEventListener('click', () => {
+          this.activeEventTab = 'missions';
+          this.openModal(this.ui.eventsModal);
+        });
+        document.getElementById('open-friends-btn').addEventListener('click', () => this.openModal(this.ui.friendsModal));
+        document.getElementById('open-vip-btn').addEventListener('click', () => this.openModal(this.ui.vipModal));
+
+        document.getElementById('flash-pack-btn').addEventListener('click', () => {
+          const starter = GEM_PACKS[0];
+          const gems = !this.save.economy.firstTopupUsed ? starter.gems * 2 : starter.gems;
+          this.openCheckout({
+            type: 'gem_pack',
+            packId: starter.id,
+            title: starter.name,
+            rewardText: `獲得 💎 ${gems} 鑽石 + 🪙 ${starter.gold} 軍費`,
+            priceText: starter.priceText,
+            gems,
+            gold: starter.gold
+          });
+        });
+
+        document.querySelectorAll('[data-close-modal]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const targetId = btn.getAttribute('data-close-modal');
+            this.closeModal(document.getElementById(targetId));
+          });
+        });
+
+        // 會員登入表單
+        document.getElementById('account-login-form').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const nick = (this.ui.loginNicknameInput.value || '').trim() || '鐵騎指揮官';
+          const email = (this.ui.loginEmailInput.value || '').trim();
+          this.save.account.loggedIn = true;
+          this.save.account.nickname = nick;
+          this.save.account.email = email;
+          this.persistSave();
+          this.renderLobbyUI();
+          this.closeModal(this.ui.accountModal);
+          this.showToast(`✅ 歡迎回來，${nick} 指揮官！`, 'emerald');
+        });
+
+        document.getElementById('guest-switch-btn').addEventListener('click', () => {
+          this.save.account.loggedIn = false;
+          this.save.account.nickname = '訪客指揮官';
+          this.persistSave();
+          this.renderLobbyUI();
+          this.closeModal(this.ui.accountModal);
+          this.showToast('已切換為訪客模式', 'amber');
+        });
+
+        // 商店分頁
+        document.getElementById('shop-tab-upgrades').addEventListener('click', () => {
+          this.activeShopTab = 'upgrades';
+          this.renderShopModal();
+        });
+        document.getElementById('shop-tab-gems').addEventListener('click', () => {
+          this.activeShopTab = 'gems';
+          this.renderShopModal();
+        });
+
+        // 活動分頁
+        document.getElementById('event-tab-missions').addEventListener('click', () => {
+          this.activeEventTab = 'missions';
+          this.renderEventsModal();
+        });
+        document.getElementById('event-tab-season').addEventListener('click', () => {
+          this.activeEventTab = 'season';
+          this.renderEventsModal();
+        });
+
+        // VIP 方案購買
+        document.querySelectorAll('[data-buy-vip]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const plan = btn.getAttribute('data-buy-vip');
+            if (plan === 'monthly') {
+              this.openCheckout({
+                type: 'vip_monthly',
+                title: 'VIP 菁英指揮官（30天）',
+                rewardText: '30天 +35% 收益 + 💎 300 鑽石 + 極地冰鋒塗裝',
+                priceText: 'NT$ 149'
+              });
+            } else {
+              this.openCheckout({
+                type: 'vip_lifetime',
+                title: 'SVIP 傳奇元帥（永久）',
+                rewardText: '永久 +75% 收益 + 💎 900 鑽石 + 黃金雷霆塗裝',
+                priceText: 'NT$ 490'
+              });
+            }
+          });
+        });
+
+        // 付款方式選擇與確認
+        document.querySelectorAll('.pay-method-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            this.selectedPayMethod = btn.getAttribute('data-pay-method');
+            document.querySelectorAll('.pay-method-btn').forEach((b) => {
+              const active = b === btn;
+              b.classList.toggle('border-amber-400', active);
+              b.classList.toggle('bg-amber-500/15', active);
+              const badge = b.querySelector('span:last-child');
+              if (badge) {
+                badge.textContent = active ? '已選' : '選擇';
+                badge.className = active ? 'text-amber-300 text-xs' : 'text-slate-400 text-xs';
+              }
+            });
+          });
+        });
+
+        document.getElementById('confirm-payment-btn').addEventListener('click', () => {
+          this.completePendingCheckout();
+        });
+
+        // 新增好友
+        document.getElementById('add-friend-form').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const queryVal = (this.ui.friendSearchInput.value || '').trim();
+          if (!queryVal) {
+            this.showToast('請輸入好友暱稱或 UID', 'rose');
+            return;
+          }
+          const newFriend = {
+            id: `f_${Date.now()}`,
+            name: queryVal,
+            uid: `CMD-${Math.floor(100000 + Math.random() * 899999)}`,
+            status: '線上 · 準備出擊',
+            giftClaimedToday: false
+          };
+          this.save.friends.unshift(newFriend);
+          this.persistSave();
+          this.ui.friendSearchInput.value = '';
+          this.renderFriendsModal();
+          this.renderLobbyUI();
+          this.showToast(`👥 已將「${queryVal}」加入戰友名冊！`, 'sky');
+        });
+      }
+
+      updatePointerPosition(clientX, clientY) {
+        this.mouseScreen.x = clientX;
+        this.mouseScreen.y = clientY;
+        const w = window.innerWidth || 1;
+        const h = window.innerHeight || 1;
+        this.mouseNDC.x = (clientX / w) * 2 - 1;
+        this.mouseNDC.y = -(clientY / h) * 2 + 1;
+
+        this.ui.crosshair.style.left = `${clientX}px`;
+        this.ui.crosshair.style.top = `${clientY}px`;
+        if (this.isFirstPerson && this.gameState === 'playing') {
+          this.ui.crosshair.style.left = '50%';
+          this.ui.crosshair.style.top = '50%';
+        }
+      }
+
+      normalizeAngle(angle) {
+        let a = angle;
+        while (a > Math.PI) a -= Math.PI * 2;
+        while (a < -Math.PI) a += Math.PI * 2;
+        return a;
+      }
+
+      lerpAngle(current, target, t) {
+        const diff = this.normalizeAngle(target - current);
+        return current + diff * t;
+      }
+
+      formatCountdown(totalSec) {
+        const h = String(Math.floor(totalSec / 3600)).padStart(2, '0');
+        const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+        const s = String(Math.floor(totalSec % 60)).padStart(2, '0');
+        return `${h}:${m}:${s}`;
+      }
+
+      animate(now) {
+        requestAnimationFrame(this.animate);
+
+        const rawDt = (now - this.lastTime) / 1000;
+        this.lastTime = now;
+        const dt = Math.min(rawDt, 0.05);
+
+        if (this.flashSecondsLeft > 0) {
+          this.flashSecondsLeft -= dt;
+          if (this.ui.flashCountdown) {
+            this.ui.flashCountdown.textContent = this.formatCountdown(Math.max(0, Math.floor(this.flashSecondsLeft)));
+          }
+        }
+
+        if (this.gameState === 'playing') {
+          if (this.waveTransitionTimer > 0) {
+            this.waveTransitionTimer -= dt;
+            if (this.waveTransitionTimer <= 0) {
+              this.ui.waveBanner.classList.add('hidden');
+            }
+          }
+
+          this.updatePlayer(dt);
+          this.updateEnemies(dt);
+          this.updateProjectilesAndParticles(dt);
+          this.updateCamera(dt);
+          this.updateRadar();
+
+          if (this.enemies.length === 0) {
+            this.startWave(this.wave + 1);
+          }
+        } else if (this.gameState === 'start') {
+          const t = now * 0.00018;
+          const gy = getTerrainHeight(this.player.x, this.player.z);
+          this.player.visual.root.position.set(this.player.x, gy, this.player.z);
+          this.player.visual.root.rotation.y = Math.PI;
+          this.aimIndicator.visible = false;
+          this.camera.position.set(
+            this.player.x + Math.sin(t) * 34,
+            gy + 22,
+            this.player.z + Math.cos(t) * 34
+          );
+          this.camera.lookAt(this.player.x, gy + 1.5, this.player.z);
+        } else {
+          this.updateCamera(dt);
+        }
+
+        this.aimIndicator.visible = this.gameState === 'playing' && !this.isFirstPerson;
+        this.renderer.render(this.scene, this.camera);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      new TankWarfareGame();
+    });
+  </script>
+</body>
+</html>
